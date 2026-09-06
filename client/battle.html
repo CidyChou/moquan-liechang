@@ -598,6 +598,7 @@
         break;
       case 'levelup.offer':
         levelupLocalFallback=false;
+        pendingLevelUp=false;
         levelupSession={
           forPlayerId: msg.forPlayerId,
           options: Array.isArray(msg.options)?msg.options:[],
@@ -796,7 +797,7 @@
         scoreYou.reviveAt = p.reviveAt;
         if(p.team) myTeam = p.team;
         if(!p.alive && !downed) enterRevive(p.reviveAt);
-        if(p.alive && downed){ /* wait combat.revive */ }
+        if(p.alive && downed) doLocalRevive(p.lives!=null?p.lives:livesN);
       } else {
         opponentId = p.playerId || opponentId;
         if(!foe) foe = makeActor(p.team||oppTeam, p.x, p.y, p.playerId);
@@ -826,7 +827,7 @@
         ownerId: e.ownerId,
         hp: e.hp!=null?e.hp:1,
         state:'wander', angle:0, wanderT:1, alert:0, attackCd:0, hitFlash:0,
-        injected:false, dead:false,
+        injected:!!e.injected, dead:false,
       };
     });
     applyFactionUI();
@@ -908,43 +909,184 @@
     trail=[{x:player.x,y:player.y,t:elapsed}];
   }
 
+  // 设计说明 §5.3：大标签+短描述（本地 fallback 抽 3）；权威模式用服务端 options
+  const UPGRADE_POOL = [
+    {id:'step', label:'速度', name:'轻步', desc:'移速 +12%，更好拉圈', apply:()=>{upgradeSpeedMul*=1.12}},
+    {id:'close', label:'收笔', name:'宽容收笔', desc:'闭合判定距离 +5', apply:()=>{player.closureRadius+=5}},
+    {id:'trail', label:'笔迹', name:'长锋画笔', desc:'轨迹更长 +18%', apply:()=>{player.maxTrail=Math.floor(player.maxTrail*1.18)}},
+    {id:'hp', label:'生命', name:'厚纸', desc:'最大生命 +25，并回 25', apply:()=>{player.maxHp+=25;player.hp=Math.min(player.maxHp,player.hp+25)}},
+    {id:'suck', label:'吸取', name:'吸墨', desc:'经验吸取半径 +45', apply:()=>{player.pickup+=45}},
+    {id:'thick', label:'粗笔', name:'粗笔', desc:'轨迹更粗；封圈短暂无敌', apply:()=>{player.trailWidth+=1.8; player.invuln=Math.max(player.invuln,.45)}},
+    {id:'compose', label:'构图', name:'大构图', desc:'更小圈也能封', apply:()=>{player.minLoopArea=Math.max(900,player.minLoopArea*.86)}},
+    {id:'mend', label:'回复', name:'修补', desc:'立刻恢复 45 生命', apply:()=>{player.hp=Math.min(player.maxHp,player.hp+45)}},
+    // 服务端简版三选一 id 映射
+    {id:'spd', label:'速度', name:'速度', desc:'移速提升', apply:()=>{upgradeSpeedMul*=1.10}},
+    {id:'dmg', label:'伤害', name:'伤害', desc:'圈杀更强', apply:()=>{ /* 表现向 */ }},
+  ];
+
+  function findUpgrade(idOrOpt){
+    if(!idOrOpt) return null;
+    if(typeof idOrOpt==='object'){
+      const id=idOrOpt.id;
+      const hit=UPGRADE_POOL.find(u=>u.id===id);
+      if(hit) return Object.assign({}, hit, {
+        label: idOrOpt.label||hit.label,
+        desc: idOrOpt.desc||hit.desc,
+        name: idOrOpt.label||hit.name,
+      });
+      return {
+        id,
+        label: idOrOpt.label||id,
+        desc: idOrOpt.desc||'',
+        name: idOrOpt.label||id,
+        apply:()=>{},
+      };
+    }
+    return UPGRADE_POOL.find(u=>u.id===idOrOpt) || null;
+  }
+
+  function applyLevelupOptionId(optionId, optHint){
+    const up = findUpgrade(optHint && optHint.id ? optHint : optionId) || findUpgrade(optionId);
+    if(up && typeof up.apply==='function') up.apply();
+  }
+
+  function clearLevelupTimer(){
+    if(levelupTimerId){ clearInterval(levelupTimerId); levelupTimerId=null; }
+  }
+
+  function tickLevelupDeadline(){
+    if(!levelupSession) return;
+    const leftMs = Math.max(0, (levelupSession.deadline||0) - Date.now());
+    const left = Math.ceil(leftMs/1000);
+    const txt = left + 's';
+    const danger = left <= 3;
+    if(ui.levelupTimer){
+      ui.levelupTimer.textContent = txt;
+      ui.levelupTimer.classList.toggle('danger', danger);
+    }
+    if(ui.levelupWaitTimer){
+      ui.levelupWaitTimer.textContent = txt;
+      ui.levelupWaitTimer.classList.toggle('danger', danger);
+    }
+    if(levelupLocalFallback && leftMs<=0){
+      // 本地 fallback：超时随机
+      const opts = levelupSession.options||[];
+      if(opts.length){
+        const pick = opts[Math.floor(Math.random()*opts.length)];
+        pickLocalLevelup(pick.id, true);
+      }
+    }
+  }
+
+  function closeLevelupUI(){
+    clearLevelupTimer();
+    levelupSession=null;
+    levelupLocalFallback=false;
+    paused=false;
+    if(ui.levelup) ui.levelup.style.display='none';
+    if(ui.levelupPick) ui.levelupPick.style.display='';
+    if(ui.levelupWait) ui.levelupWait.style.display='none';
+    if(ui.cards) ui.cards.innerHTML='';
+  }
+
+  function showLevelupUI(session){
+    if(!session || !battleActive || screen===Screen.RESULT) return;
+    // 复活层优先：倒地中不弹选卡
+    if(downed || (ui.revive && ui.revive.style.display==='flex')){
+      levelUpQueued=true;
+      return;
+    }
+    levelupSession = session;
+    paused=true;
+    worldPaused=true;
+    ui.levelup.style.display='flex';
+    ui.levelup.onclick=(e)=>{ if(e.target===ui.levelup) e.stopPropagation(); };
+
+    const mine = !session.forPlayerId || session.forPlayerId===playerId;
+    if(mine){
+      ui.levelupPick.style.display='';
+      ui.levelupWait.style.display='none';
+      if(ui.levelupHint) ui.levelupHint.textContent='超时将随机选择';
+      ui.cards.innerHTML='';
+      let options = Array.isArray(session.options) ? session.options.slice() : null;
+      if(!options || !options.length){
+        options = [...UPGRADE_POOL].filter(u=>!['spd','dmg'].includes(u.id) || u.id==='hp')
+          .filter((u,i,arr)=>arr.findIndex(x=>x.id===u.id)===i)
+          .sort(()=>Math.random()-.5).slice(0,3)
+          .map(u=>({id:u.id,label:u.label,desc:u.desc}));
+        session.options = options;
+      }
+      for(const raw of options){
+        const up = findUpgrade(raw);
+        const b=document.createElement('button');
+        b.className='card';
+        b.type='button';
+        b.innerHTML=`<div class="label">${up.label}</div><div class="desc">${up.desc}</div>`;
+        b.onclick=()=>{
+          if(levelupLocalFallback) pickLocalLevelup(up.id, false);
+          else {
+            netSend({type:'levelup.pick', optionId: up.id});
+            // 等 levelup.resolved / world.resume；禁用重复点
+            ui.cards.querySelectorAll('button').forEach(x=>x.disabled=true);
+          }
+        };
+        ui.cards.appendChild(b);
+      }
+    } else {
+      // 未升级方：不展示对方三张卡
+      ui.levelupPick.style.display='none';
+      ui.levelupWait.style.display='';
+    }
+
+    if(!session.deadline){
+      session.deadline = Date.now() + (session.timeoutMs||levelupTimeoutMs||8000);
+    }
+    clearLevelupTimer();
+    tickLevelupDeadline();
+    levelupTimerId=setInterval(tickLevelupDeadline, 200);
+  }
+
+  function pickLocalLevelup(optionId, auto){
+    if(!levelupSession) return;
+    applyLevelupOptionId(optionId);
+    const up = findUpgrade(optionId);
+    const label = (up && up.label) || optionId;
+    showMessage((auto?'超时随机 · ':'') + label + ' 已强化');
+    netSend({type:'meta.levelup', level:player.level, choiceId:optionId});
+    closeLevelupUI();
+    worldPaused=false;
+  }
+
+  function openLevelUp(){
+    // 权威：请求服务端发起双方暂停三选一
+    if(useAuthority){
+      pendingLevelUp=true;
+      netSend({type:'levelup.request'});
+      return;
+    }
+    // fallback：本地三选一 + 8s 超时随机（双方若同连 mock 则由 mock 广播）
+    levelupLocalFallback=true;
+    const options = [...UPGRADE_POOL]
+      .filter(u=>!['spd','dmg'].includes(u.id))
+      .sort(()=>Math.random()-.5).slice(0,3)
+      .map(u=>({id:u.id,label:u.label,desc:u.desc}));
+    levelupSession={
+      forPlayerId: playerId,
+      options,
+      deadline: Date.now()+(levelupTimeoutMs||8000),
+      timeoutMs: levelupTimeoutMs||8000,
+    };
+    showLevelupUI(levelupSession);
+  }
+
   function gainXp(v){
     player.xp += v;
-    if(player.xp >= player.xpNeed && !paused){
+    if(player.xp >= player.xpNeed && !paused && !worldPaused && !pendingLevelUp){
       player.xp -= player.xpNeed;
       player.level++;
       player.xpNeed = Math.floor(12 + player.level*5.5 + player.level*player.level*.55);
       if(downed){ levelUpQueued=true; }
       else openLevelUp();
-    }
-  }
-
-  const upgrades = [
-    {icon:'➜',name:'轻步',desc:'移动速度 +12%，更容易迅速拉出大圈。',apply:()=>{upgradeSpeedMul*=1.12}},
-    {icon:'◯',name:'宽容收笔',desc:'闭合判定距离 +5px，封圈更容易触发。',apply:()=>player.closureRadius+=5},
-    {icon:'✦',name:'长锋画笔',desc:'保留的移动轨迹长度 +18%。',apply:()=>player.maxTrail=Math.floor(player.maxTrail*1.18)},
-    {icon:'❤',name:'厚纸',desc:'最大生命 +25，并立即恢复 25。',apply:()=>{player.maxHp+=25;player.hp=Math.min(player.maxHp,player.hp+25)}},
-    {icon:'◎',name:'吸墨',desc:'经验吸取半径 +45。',apply:()=>player.pickup+=45},
-    {icon:'⌁',name:'粗笔',desc:'画笔轨迹更明显；封圈时获得 0.45 秒无敌。',apply:()=>{player.trailWidth+=1.8; player.invuln=Math.max(player.invuln,.45)}},
-    {icon:'◇',name:'大构图',desc:'最小封圈面积 -14%，小圈也更容易生效。',apply:()=>player.minLoopArea=Math.max(900,player.minLoopArea*.86)},
-    {icon:'✚',name:'修补',desc:'立刻恢复 45 点生命。',apply:()=>player.hp=Math.min(player.maxHp,player.hp+45)}
-  ];
-
-  function openLevelUp(){
-    paused=true; ui.levelup.style.display='flex'; ui.cards.innerHTML='';
-    ui.levelup.onclick=(e)=>{ if(e.target===ui.levelup) e.stopPropagation(); };
-    const pool=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);
-    for(const up of pool){
-      const b=document.createElement('button'); b.className='card';
-      b.innerHTML=`<div class="icon">${up.icon}</div><h3>${up.name}</h3><p>${up.desc}</p>`;
-      b.onclick=()=>{
-        up.apply();
-        ui.levelup.style.display='none';
-        paused=false;
-        showMessage(up.name+' 已强化');
-        netSend({type:'meta.levelup', level:player.level, choiceId:up.name});
-      };
-      ui.cards.appendChild(b);
     }
   }
 
@@ -1045,7 +1187,11 @@
     }
     trail=[{x:player.x,y:player.y,t:elapsed}];
     updateScoreUI();
-    if(levelUpQueued){ levelUpQueued=false; openLevelUp(); }
+    if(levelUpQueued){
+      levelUpQueued=false;
+      if(levelupSession) showLevelupUI(levelupSession);
+      else openLevelUp();
+    }
   }
 
   function updateFoeAI(dt){
@@ -1322,8 +1468,9 @@
     foe = makeActor(oppTeam, world.w/2 + gap, world.h/2, opponentId);
     enemies=[];orbs=[];particles=[];flashes=[];trail=[{x:player.x,y:player.y,t:0}];
     localKills=0;elapsed=0;spawnClock=0;difficulty=1;
-    paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;
+    paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;pendingLevelUp=false;
     snapshotSeq=-1; worldPaused=false; moveReportAccum=0; lastMoveSent={x:0,y:0};
+    closeLevelupUI();
     camera.x=player.x;camera.y=player.y;
     // TODO(client): 无权威 snapshot 时本地双实体 fallback
     if(useFallback){
@@ -1339,12 +1486,12 @@
     battleActive=false;
     paused=true;
     clearInterval(reviveLocalTimer);
-    ui.levelup.style.display='none';
+    closeLevelupUI();
     ui.revive.style.display='none';
   }
 
   function showResult(msg){
-    ui.levelup.style.display='none';
+    closeLevelupUI();
     ui.revive.style.display='none';
     clearInterval(reviveLocalTimer);
     stopBattle();
