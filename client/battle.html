@@ -38,7 +38,7 @@
     .screen.active{display:flex}
     #lobby.screen{background:transparent}
     .lobby-wrap{width:min(420px,94vw);text-align:center;position:relative;z-index:1}
-    .lobby-seal{width:96px;height:96px;margin:0 auto 14px;display:block;filter:drop-shadow(0 10px 28px rgba(0,0,0,.45));opacity:.92}
+    .lobby-seal{width:96px;height:96px;margin:0 auto 14px;display:block;object-fit:contain;aspect-ratio:1/1;filter:drop-shadow(0 10px 28px rgba(0,0,0,.45));opacity:.95}
     .lobby-wrap h1{
       margin:0 0 8px;font-size:clamp(30px,5.2vw,36px);font-weight:800;letter-spacing:.18em;
       background:linear-gradient(180deg,#fff6df 0%,var(--ink) 55%,var(--accent) 100%);
@@ -133,7 +133,7 @@
       #mobile.show{display:block}
       #reviveCount{font-size:64px}
       .ad-slot{height:120px}
-      .lobby-seal{width:84px;height:84px}
+      .lobby-seal{width:84px;height:84px;object-fit:contain}
     }
     @media (min-width:761px){ .ad-slot{height:160px} }
   </style>
@@ -143,7 +143,7 @@
 
   <div id="lobby" class="screen active">
     <div class="lobby-wrap">
-      <img class="lobby-seal" src="assets/ink-seal.webp" alt="" width="96" height="96" />
+      <img class="lobby-seal" src="assets/ink-seal.webp?v=2" alt="" width="96" height="96" />
       <h1>墨圈猎场</h1>
       <p class="sub">1v1 对战 · 先到击杀目标</p>
       <button class="btn-primary" id="btnMatch">开始匹配</button>
