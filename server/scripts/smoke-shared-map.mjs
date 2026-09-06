@@ -66,7 +66,7 @@ async function waitSnapshot(client, pred, timeoutMs, label) {
 }
 
 function fullMapLoop() {
-  return [[0, 0], [900, 0], [900, 700], [0, 700]];
+  return [[0, 0], [1600, 0], [1600, 1000], [0, 1000]];
 }
 
 function startServerIfNeeded() {

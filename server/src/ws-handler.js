@@ -203,7 +203,7 @@ export function attachConnection(ws) {
         typeof msg.playerName === 'string' ? msg.playerName.slice(0, 32) : '';
       client = { playerId, playerName, ws, roomId: null };
       clients.set(ws, client);
-      send(ws, { type: 'welcome', playerId, config: clientConfig() });
+      send(ws, { type: 'welcome', playerId, mode: 'shared_map', config: clientConfig() });
       return;
     }
 
