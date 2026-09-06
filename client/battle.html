@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>墨圈猎场 · 同图对战 v2 · 节点2</title>
+  <title>墨圈猎场 · 同图对战</title>
   <style>
     :root{
       --bg:#0f1517;
@@ -16,6 +16,7 @@
       --danger:#e6655b;
       --xp:#8fcf82;
       --line:rgba(240,223,182,.14);
+      --glow:rgba(230,181,106,.22);
       --red:#e6655b;
       --blue:#5b9fd4;
     }
@@ -30,51 +31,71 @@
         url('assets/ink-bg.webp') center/cover no-repeat;
       opacity:.95;
     }
+    body::after{
+      content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.45) 100%);
+    }
     canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;z-index:1}
     .screen{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;padding:20px}
     .screen.active{display:flex}
-    .lobby-wrap{width:min(440px,94vw);text-align:center;position:relative;z-index:1}
-    .lobby-seal{width:88px;height:88px;margin:0 auto 12px;display:block;object-fit:contain;filter:drop-shadow(0 10px 28px rgba(0,0,0,.45))}
+    #lobby.screen{background:transparent}
+    .lobby-wrap{width:min(420px,94vw);text-align:center;position:relative;z-index:1}
     .lobby-wrap h1{
-      margin:0 0 8px;font-size:clamp(28px,5vw,34px);font-weight:800;letter-spacing:.16em;
+      margin:0 0 8px;font-size:clamp(30px,5.2vw,36px);font-weight:800;letter-spacing:.18em;
       background:linear-gradient(180deg,#fff6df 0%,var(--ink) 55%,var(--accent) 100%);
       -webkit-background-clip:text;background-clip:text;color:transparent;
       filter:drop-shadow(0 2px 10px rgba(0,0,0,.35));
     }
-    .lobby-wrap .sub{margin:0 0 8px;color:var(--muted);font-size:14px;letter-spacing:.08em}
-    .lobby-wrap .hint{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+    .lobby-wrap .sub{margin:0 0 26px;color:var(--muted);font-size:14px;letter-spacing:.08em}
+    .lobby-wrap .hint{margin:16px 0 0;color:var(--muted);font-size:12px;line-height:1.55;opacity:.9}
     .btn-primary{
       width:100%;height:52px;border:1px solid rgba(240,223,182,.35);border-radius:14px;
       background:linear-gradient(180deg,#f6e2b0,#e2c078);color:#1a1f20;font-weight:800;font-size:16px;
-      cursor:pointer;letter-spacing:.06em;margin-top:8px;
-      box-shadow:0 10px 28px rgba(0,0,0,.28);
+      cursor:pointer;letter-spacing:.06em;
+      box-shadow:0 10px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.06) inset;
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
     }
+    .btn-primary:hover{filter:brightness(1.03);box-shadow:0 12px 32px rgba(0,0,0,.32),0 0 24px var(--glow)}
     .btn-primary:active{transform:translateY(1px)}
-    .btn-ghost{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);border-radius:12px;padding:10px 18px;cursor:pointer;font-size:14px}
+    .btn-primary:disabled{opacity:.55;cursor:not-allowed;filter:none;box-shadow:none}
+    .btn-ghost{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);border-radius:12px;padding:10px 18px;cursor:pointer;font-size:14px;backdrop-filter:blur(8px)}
+    .btn-ghost:hover{border-color:rgba(230,181,106,.35);background:rgba(230,181,106,.08)}
     .card-panel{
       width:min(420px,92vw);border:1px solid var(--line);border-radius:22px;
       background:linear-gradient(180deg, rgba(24,32,34,.94), rgba(14,18,20,.96));
-      padding:28px 24px;box-shadow:0 24px 70px rgba(0,0,0,.42);text-align:center
+      padding:28px 24px;box-shadow:0 24px 70px rgba(0,0,0,.42), 0 0 0 1px rgba(255,255,255,.03) inset;
+      text-align:center;backdrop-filter:blur(16px);
     }
-    .card-panel h2{margin:0 0 8px;font-size:22px}.card-panel p{margin:0 0 16px;color:var(--muted);font-size:14px}
-    .faction-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-weight:700;letter-spacing:.06em;margin:8px 0 4px}
+    .card-panel h2{margin:0 0 8px;font-size:22px;letter-spacing:.06em}
+    .card-panel p{margin:0 0 16px;color:var(--muted);font-size:14px}
+    .spinner{width:42px;height:42px;margin:0 auto 16px;border-radius:50%;border:3px solid rgba(255,255,255,.10);border-top-color:var(--accent);animation:spin .9s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #matchRemain{font-size:18px;font-weight:700;color:var(--accent);margin-bottom:18px;letter-spacing:.04em}
+    #readyFlash{background:rgba(5,9,10,.72);backdrop-filter:blur(8px);z-index:9}
+    #readyFlash .big{font-size:clamp(28px,6vw,40px);font-weight:800;color:var(--accent);letter-spacing:.18em;margin:0 0 12px;text-shadow:0 0 30px var(--glow)}
+    #readyFlash .names{color:var(--muted);font-size:14px;letter-spacing:.06em}
+    .faction-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-weight:700;letter-spacing:.06em;margin:10px 0 4px}
     .faction-badge .dot{width:12px;height:12px;border-radius:50%}
     .faction-badge.red{color:var(--red);border-color:rgba(230,101,91,.45);background:rgba(230,101,91,.08)}
     .faction-badge.blue{color:var(--blue);border-color:rgba(91,159,212,.45);background:rgba(91,159,212,.08)}
 
     #hud{position:fixed;left:18px;top:16px;display:none;flex-direction:column;gap:10px;z-index:4;pointer-events:none}
     #hud.show{display:flex}
-    .pill{min-height:36px;padding:8px 12px;border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:13px;font-size:13px}
     .row{display:flex;align-items:center;gap:10px}
-    .bar{width:min(260px,50vw);height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-    .bar>i{display:block;height:100%;width:50%;border-radius:inherit}
+    .pill{
+      min-height:36px;padding:8px 12px;border:1px solid var(--line);background:var(--panel);
+      backdrop-filter:blur(16px);border-radius:13px;box-shadow:0 8px 24px rgba(0,0,0,.22);font-size:13px;letter-spacing:.03em
+    }
+    .stat strong{font-size:16px;margin-left:5px;color:var(--ink)}
+    .bar{width:min(280px,55vw);height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.05)}
+    .bar>i{display:block;height:100%;width:50%;border-radius:inherit;transition:width .15s ease}
     #hpFill{background:linear-gradient(90deg,#e6655b,#f3a56f)}
     #xpFill{background:linear-gradient(90deg,#76bf77,#c7d87c)}
-    .stat strong{font-size:16px;margin-left:5px;color:var(--ink)}
+    .team-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
 
     #scoreBar{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:4;width:min(420px,92vw);display:none;pointer-events:none}
     #scoreBar.show{display:block}
-    .score-card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:14px;padding:9px 12px}
+    .score-card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:14px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
     .score-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .score-side{font-size:12px}
     .score-side .label{color:var(--muted);margin-bottom:2px;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
@@ -82,34 +103,50 @@
     .score-side .nums{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;font-size:14px}
     .score-side.red .nums{color:var(--red)}
     .score-side.blue .nums{color:var(--blue)}
-    .hearts{letter-spacing:1px;font-size:13px}
+    .hearts{letter-spacing:1px;color:var(--danger);font-size:13px}
+    .hearts .empty{opacity:.28}
     .prog{margin-top:5px;height:7px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-    .prog>i{display:block;height:100%;width:0;border-radius:inherit;transition:width .2s}
+    .prog>i{display:block;height:100%;width:0;border-radius:inherit;transition:width .2s ease}
     .score-side.red .prog>i{background:linear-gradient(90deg,#c4544c,#e6655b)}
     .score-side.blue .prog>i{background:linear-gradient(90deg,#4a86b5,#5b9fd4)}
+    #lagTip{display:none;margin-top:6px;text-align:center;font-size:11px;color:var(--accent)}
+    #lagTip.on{display:block}
 
-    #message{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:5;font-size:20px;font-weight:800;letter-spacing:.08em;text-shadow:0 3px 12px rgba(0,0,0,.35);opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap}
-    #sysToast{position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:13;background:var(--panel-solid);border:1px solid var(--line);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
-    #legend{position:fixed;right:14px;bottom:14px;z-index:4;display:none;pointer-events:none;font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;line-height:1.55;backdrop-filter:blur(12px)}
-    #legend.show{display:block}
-    #controlsHint{position:fixed;left:18px;bottom:18px;z-index:4;display:none;pointer-events:none;font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;line-height:1.55;backdrop-filter:blur(12px)}
-    #controlsHint.show{display:block}
-    #todoNote{position:fixed;right:14px;top:70px;z-index:4;display:none;max-width:200px;pointer-events:none;font-size:10px;color:var(--muted);background:rgba(14,20,22,.55);border:1px dashed rgba(240,223,182,.18);border-radius:10px;padding:8px 10px;line-height:1.45}
+    #message{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:5;font-size:20px;font-weight:800;letter-spacing:.08em;text-shadow:0 3px 12px rgba(0,0,0,.35);opacity:0;transition:opacity .18s ease;pointer-events:none;white-space:nowrap}
+    #sysToast{position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:13;background:var(--panel-solid);border:1px solid var(--line);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center;backdrop-filter:blur(12px)}
+    #todoNote{position:fixed;right:14px;top:70px;z-index:4;display:none;max-width:220px;pointer-events:none;font-size:10px;color:var(--muted);background:rgba(14,20,22,.55);border:1px dashed rgba(240,223,182,.18);border-radius:10px;padding:8px 10px;line-height:1.45}
     #todoNote.show{display:block}
 
-    #mobile{display:none;position:fixed;inset:0;z-index:6;pointer-events:none}
-    #stickBase{position:absolute;left:24px;bottom:28px;width:124px;height:124px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid var(--line);pointer-events:auto;touch-action:none}
-    #stickKnob{position:absolute;left:38px;top:38px;width:48px;height:48px;border-radius:50%;background:rgba(240,223,182,.82)}
-
-    #matching.screen{z-index:8}
-    .card-panel .spinner{width:42px;height:42px;margin:0 auto 16px;border-radius:50%;border:3px solid rgba(255,255,255,.10);border-top-color:var(--accent);animation:spin .9s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    @media (max-width:760px){
-      #hud{left:12px;top:10px}.pill{font-size:11px;padding:7px 9px}
-      #mobile.show{display:block}
-      #legend,#controlsHint,#todoNote{display:none !important}
+    #levelup,#revive,#result{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(5,9,10,.62);backdrop-filter:blur(8px);padding:20px}
+    #revive{z-index:11;background:rgba(5,9,10,.74)}
+    #result{z-index:12}
+    .modal{
+      width:min(760px,94vw);border:1px solid var(--line);border-radius:22px;
+      background:linear-gradient(180deg, rgba(24,32,34,.95), rgba(14,18,20,.97));
+      padding:24px;box-shadow:0 28px 80px rgba(0,0,0,.42), 0 0 0 1px rgba(255,255,255,.03) inset
     }
+    .modal h2{margin:0 0 6px;font-size:25px;letter-spacing:.04em}.modal p{margin:0 0 18px;color:var(--muted)}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .card{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:18px;padding:18px;text-align:left;cursor:pointer;min-height:152px;transition:transform .13s ease,border-color .13s ease,background .13s ease,box-shadow .13s ease}
+    .card:hover{transform:translateY(-3px);border-color:rgba(230,181,106,.5);background:rgba(230,181,106,.09);box-shadow:0 12px 28px rgba(0,0,0,.25)}
+    .card .icon{font-size:28px}.card h3{margin:10px 0 6px;font-size:17px}.card p{margin:0;font-size:13px;line-height:1.45}
+    .ad-slot{width:100%;height:120px;margin:0 0 16px;border:1.5px dashed rgba(240,223,182,.22);border-radius:14px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
+    .ad-slot small{margin-top:4px;font-size:11px;opacity:.8}
+    #reviveCount{font-size:72px;font-weight:800;color:var(--danger);line-height:1;margin:8px 0 16px}
+    #resultTitle.win{color:var(--accent)} #resultTitle.lose{color:var(--muted)}
+
+    #mobile{display:none;position:fixed;inset:0;z-index:6;pointer-events:none}
+    #stickBase{position:absolute;left:24px;bottom:28px;width:124px;height:124px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid var(--line);pointer-events:auto;touch-action:none;backdrop-filter:blur(8px)}
+    #stickKnob{position:absolute;left:38px;top:38px;width:48px;height:48px;border-radius:50%;background:rgba(240,223,182,.82);box-shadow:0 7px 18px rgba(0,0,0,.24)}
+    @media (max-width:760px){
+      #hud{left:12px;top:10px}.pill{font-size:11px;padding:7px 9px;min-height:32px}.stat strong{font-size:14px}
+      .cards{grid-template-columns:1fr}.card{min-height:auto}.modal{max-height:90vh;overflow:auto;padding:18px}.modal h2{font-size:22px}
+      #mobile.show{display:block}
+      #reviveCount{font-size:64px}
+      .ad-slot{height:120px}
+      #todoNote{display:none !important}
+    }
+    @media (min-width:761px){ .ad-slot{height:160px} }
   </style>
 </head>
 <body>
@@ -117,168 +154,444 @@
 
   <div id="lobby" class="screen active">
     <div class="lobby-wrap">
-      <img class="lobby-seal" src="assets/ink-seal.webp" alt="" />
       <h1>墨圈猎场</h1>
       <p class="sub">1v1 同图对战 · 先到击杀目标</p>
-      <p class="hint">同图可见对手 · 杀己方怪会塞怪给对面<br><span id="wsHint"></span></p>
       <button class="btn-primary" id="btnMatch">开始匹配</button>
-      <button class="btn-ghost" id="btnStart" style="margin-top:10px;width:100%">本地同图预览（无需匹配）</button>
-      <p class="hint">匹配进局走权威 snapshot；本地预览可双键位冒烟<br>颜色=阵营；造型=强弱（游魂/疾影/守望）</p>
+      <p class="hint">同图可见对手 · 杀己方怪会塞怪给对面<br><span id="wsHint"></span></p>
     </div>
   </div>
 
-  
   <div id="matching" class="screen">
     <div class="card-panel">
       <div class="spinner"></div>
       <h2>正在寻找对手…</h2>
-      <div id="matchRemain" style="font-size:18px;font-weight:700;color:var(--accent);margin-bottom:18px">剩余 15s</div>
+      <div id="matchRemain">剩余 15s</div>
       <button class="btn-ghost" id="btnCancel">取消</button>
     </div>
   </div>
 
   <div id="readyFlash" class="screen">
     <div class="card-panel">
-      <h2>匹配成功</h2>
-      <p>同图无迷雾 · 双方可见</p>
-      <div id="readyFaction" class="faction-badge red"><span class="dot" style="background:var(--red)"></span>你是红方</div>
-      <p class="names" id="readyNames" style="margin-top:12px;margin-bottom:0;font-size:13px">你 · 对手</p>
+      <p class="big">对战开始！</p>
+      <div id="readyFaction" class="faction-badge red"><span class="dot"></span><span id="readyFactionText">你是红方</span></div>
+      <p class="names" id="readyNames">你 · 对手</p>
     </div>
   </div>
 
   <div id="hud">
     <div class="row">
-      <div class="pill" id="factionPill"><span id="factionDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:middle"></span>你 · Lv <strong id="levelText">1</strong></div>
-      <div class="pill">时间 <strong id="timeText">00:00</strong></div>
+      <div class="pill stat"><span class="team-dot" id="factionDot"></span>等级 <strong id="levelText">1</strong></div>
+      <div class="pill stat">时间 <strong id="timeText">00:00</strong></div>
     </div>
-    <div class="pill">HP <strong id="hpText">100/100</strong>
-      <div class="bar" style="margin-top:6px"><i id="hpFill"></i></div>
-    </div>
-    <div class="pill">XP <strong id="xpText">0/12</strong>
-      <div class="bar" style="margin-top:6px"><i id="xpFill"></i></div>
+    <div class="pill">
+      <div class="row"><span>生命</span><div class="bar"><i id="hpFill"></i></div><span id="hpText">100/100</span></div>
+      <div class="row" style="margin-top:7px"><span>经验</span><div class="bar"><i id="xpFill"></i></div><span id="xpText">0/12</span></div>
     </div>
   </div>
 
   <div id="scoreBar">
     <div class="score-card">
       <div class="score-grid">
-        <div class="score-side red" id="scoreYou">
-          <div class="label"><span class="dot" id="youDot" style="background:var(--red)"></span><span id="youLabel">你 · 红</span></div>
-          <div class="nums"><span class="hearts">♥</span><span id="killYou">0 / 30</span></div>
+        <div class="score-side" id="scoreYou">
+          <div class="label"><span class="dot" id="youDot"></span><span id="youLabel">你</span></div>
+          <div class="nums"><span class="hearts" id="heartsYou">♥</span><span id="killYou">0 / 30</span></div>
           <div class="prog"><i id="progYou"></i></div>
         </div>
-        <div class="score-side blue" id="scoreOpp">
-          <div class="label" style="justify-content:flex-end"><span id="oppLabel">对手 · 蓝</span><span class="dot" id="oppDot" style="background:var(--blue)"></span></div>
-          <div class="nums"><span id="killOpp">0 / 30</span><span class="hearts">♥</span></div>
+        <div class="score-side" id="scoreOpp">
+          <div class="label" style="justify-content:flex-end"><span id="oppLabel">对手</span><span class="dot" id="oppDot"></span></div>
+          <div class="nums"><span id="killOpp">0 / 30</span><span class="hearts" id="heartsOpp">♥</span></div>
           <div class="prog"><i id="progOpp"></i></div>
         </div>
       </div>
+      <div id="lagTip">落后补偿生效 · 移速+15%</div>
     </div>
   </div>
 
   <div id="message"></div>
   <div id="sysToast"></div>
-  <div id="controlsHint">
-    <b style="color:var(--ink)">操作</b><br>
-    你：WASD / 摇杆画圈<br>
-    对手：IJKL（本地第二玩家）
+  <div id="todoNote">TODO：无权威 world.snapshot 时用本地双实体 fallback；收到快照后切权威渲染</div>
+
+  <div id="levelup">
+    <div class="modal">
+      <h2>选择一次强化</h2>
+      <p>每次升级只选一个</p>
+      <div id="upgradeCards" class="cards"></div>
+    </div>
   </div>
-  <div id="legend">
-    <b style="color:var(--ink)">图例</b><br>
-    ● 圆形 = 游魂（普通）<br>
-    ▶ 刺翼 = 疾影（敏捷）<br>
-    ◎ 眼圈 = 守望（监视）<br>
-    红/蓝 = 阵营归属
+
+  <div id="revive">
+    <div class="modal" style="max-width:520px;text-align:center">
+      <h2>画笔折断了</h2>
+      <p>5 秒后自动复活</p>
+      <div id="reviveCount">5</div>
+      <div class="ad-slot" id="adRevivePlaceholder"><span>广告位 · 复活</span><small>本版仅占位</small></div>
+      <p style="margin:0;font-size:12px">免费复活 · 不限次数 · 对手仍在进攻</p>
+    </div>
   </div>
-  
-  <div id="mobile"><div id="stickBase"><div id="stickKnob"></div></div></div>
+
+  <div id="result">
+    <div class="modal" style="max-width:520px;text-align:center">
+      <h2 id="resultTitle">猎场封圈</h2>
+      <p id="resultScore">你 0 · 对手 0</p>
+      <p id="resultMeta" style="margin-top:-8px;font-size:13px"></p>
+      <div class="ad-slot" id="adResultPlaceholder"><span>广告位 · 结算</span><small>本版仅占位</small></div>
+      <button class="btn-primary" id="btnLobby" style="max-width:280px;margin:0 auto">返回大厅</button>
+    </div>
+  </div>
+
+  <div id="mobile">
+    <div id="stickBase"><div id="stickKnob"></div></div>
+  </div>
 
 <script>
 (() => {
   'use strict';
 
   const FACTION = {
-    red:  { id:'red',  name:'红方', color:'#e6655b', fill:'#e6655b', soft:'rgba(230,101,91,.22)', trail:'rgba(230,101,91,.35)' },
-    blue: { id:'blue', name:'蓝方', color:'#5b9fd4', fill:'#5b9fd4', soft:'rgba(91,159,212,.22)', trail:'rgba(91,159,212,.35)' },
+    red:  { id:'red',  name:'红方', color:'#e6655b', fill:'#e6655b', soft:'rgba(230,101,91,.22)', trail:'rgba(230,101,91,.38)' },
+    blue: { id:'blue', name:'蓝方', color:'#5b9fd4', fill:'#5b9fd4', soft:'rgba(91,159,212,.22)', trail:'rgba(91,159,212,.38)' },
   };
-  const K = 30;
+
+  const params = new URLSearchParams(location.search);
+  // 默认本机真服/mock 8788；?ws= 可覆盖
+  const WS_URL = params.get('ws') || 'ws://127.0.0.1:8788';
+  const playerName = params.get('name') || ('猎人' + Math.floor(Math.random()*900+100));
 
   const el = (id) => document.getElementById(id);
   const canvas = el('game');
   const ctx = canvas.getContext('2d');
 
   const ui = {
-    lobby: el('lobby'), ready: el('readyFlash'),
+    lobby: el('lobby'), matching: el('matching'), ready: el('readyFlash'),
     hud: el('hud'), scoreBar: el('scoreBar'), mobile: el('mobile'),
     level: el('levelText'), time: el('timeText'),
     hp: el('hpText'), xp: el('xpText'), hpFill: el('hpFill'), xpFill: el('xpFill'),
-    message: el('message'), sysToast: el('sysToast'),
+    message: el('message'), sysToast: el('sysToast'), todoNote: el('todoNote'),
+    levelup: el('levelup'), cards: el('upgradeCards'),
+    revive: el('revive'), reviveCount: el('reviveCount'),
+    result: el('result'), resultTitle: el('resultTitle'), resultScore: el('resultScore'), resultMeta: el('resultMeta'),
+    matchRemain: el('matchRemain'), readyNames: el('readyNames'),
+    readyFaction: el('readyFaction'), readyFactionText: el('readyFactionText'),
     killYou: el('killYou'), killOpp: el('killOpp'),
+    heartsYou: el('heartsYou'), heartsOpp: el('heartsOpp'),
     progYou: el('progYou'), progOpp: el('progOpp'),
-    readyFaction: el('readyFaction'),
+    scoreYou: el('scoreYou'), scoreOpp: el('scoreOpp'), lagTip: el('lagTip'),
     youLabel: el('youLabel'), oppLabel: el('oppLabel'),
-    youDot: el('youDot'), oppDot: el('oppDot'),
-    factionDot: el('factionDot'),
-    legend: el('legend'), controlsHint: el('controlsHint'),   };
+    youDot: el('youDot'), oppDot: el('oppDot'), factionDot: el('factionDot'),
+    wsHint: el('wsHint'),
+  };
+  ui.wsHint.textContent = 'WS: ' + WS_URL;
 
-  let screen = 'lobby';
-  let toastTimer = 0, msgTimer = 0;
+  const Screen = { LOBBY:'lobby', MATCHING:'matching', READY:'ready', INGAME:'ingame', RESULT:'result' };
+  let screen = Screen.LOBBY;
+
   function setScreen(s){
     screen = s;
-    ui.lobby.classList.toggle('active', s==='lobby');
-    ui.ready.classList.toggle('active', s==='ready');
-    const inGame = s==='ingame';
+    ui.lobby.classList.toggle('active', s===Screen.LOBBY);
+    ui.matching.classList.toggle('active', s===Screen.MATCHING);
+    ui.ready.classList.toggle('active', s===Screen.READY);
+    const inGame = s===Screen.INGAME;
     ui.hud.classList.toggle('show', inGame);
     ui.scoreBar.classList.toggle('show', inGame);
-    ui.legend.classList.toggle('show', inGame);
-    ui.controlsHint.classList.toggle('show', inGame);
-        ui.mobile.classList.toggle('show', inGame && innerWidth<=760);
-  }
-  function showMessage(text){
-    ui.message.textContent = text;
-    ui.message.style.opacity = '1';
-    msgTimer = 1.15;
-  }
-  function sysToast(text, ms=2000){
-    ui.sysToast.textContent = text;
-    ui.sysToast.style.opacity = '1';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>{ ui.sysToast.style.opacity='0'; }, ms);
+    ui.todoNote.classList.toggle('show', inGame && useFallback);
+    ui.mobile.classList.toggle('show', inGame && innerWidth<=760);
+    if(s!==Screen.INGAME){
+      ui.levelup.style.display='none';
+      ui.revive.style.display='none';
+    }
+    if(s!==Screen.RESULT) ui.result.style.display='none';
   }
 
-  // ---------- world ----------
-  const DPR = Math.min(devicePixelRatio || 1, 2);
-  let W=0, H=0;
+  let toastTimer=0, msgTimer=0;
+  function showMessage(text){
+    ui.message.textContent=text; ui.message.style.opacity='1'; msgTimer=1.1;
+  }
+  function sysToast(text, ms=2200){
+    ui.sysToast.textContent=text; ui.sysToast.style.opacity='1';
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>{ui.sysToast.style.opacity='0'}, ms);
+  }
+  function hearts(n, max){
+    let s='';
+    for(let i=0;i<max;i++) s += i<n ? '♥' : '<span class="empty">♡</span>';
+    return s;
+  }
+
+  // ---------- Net ----------
+  let ws=null, playerId=null, netConfig=null, roomCfg=null;
+  let myTeam='red', oppTeam='blue';
+  let mode='shared_map';
+  let scoreYou={kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:'red'};
+  let scoreOpp={kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:'blue'};
+  let lastLagBonusOn=null;
+  let injectDeniedAt=0;
+  let killTargetK=30, livesN=1;
+  let matchTimer=null, matchLeft=15, pingTimer=null;
+  let opponentName='对手', opponentId=null;
+  let injectBurst={n:0,t:0};
+  let injectHintAt=0;
+  let seq=0;
+  let pendingLevelUp=false;
+  /** 收到过 world.snapshot 则走权威；否则本地 fallback */
+  let useAuthority=false;
+  let useFallback=true;
+  let snapshotSeq=-1;
+  let worldPaused=false;
+  let moveReportAccum=0;
+  let lastMoveSent={x:0,y:0};
+
+  function connect(){
+    return new Promise((resolve, reject)=>{
+      try{ ws = new WebSocket(WS_URL); }
+      catch(e){ reject(e); return; }
+      const to=setTimeout(()=>{reject(new Error('连接超时')); try{ws.close()}catch{}}, 5000);
+      ws.onopen=()=>{
+        clearTimeout(to);
+        ws.send(JSON.stringify({type:'hello', playerName, clientVersion:'0.2-same-map'}));
+      };
+      ws.onmessage=(ev)=>{
+        let msg; try{msg=JSON.parse(ev.data)}catch{return}
+        if(msg.type==='welcome'){
+          playerId=msg.playerId;
+          netConfig=msg.config||{};
+          killTargetK=netConfig.killTargetK||30;
+          livesN=netConfig.livesN!=null?netConfig.livesN:1;
+          if(netConfig.mode) mode=netConfig.mode;
+          startPing();
+          resolve(msg);
+          return;
+        }
+        onNet(msg);
+      };
+      ws.onerror=()=>{clearTimeout(to); reject(new Error('WS 连接失败'));};
+      ws.onclose=()=>{
+        stopPing();
+        if(screen===Screen.INGAME || screen===Screen.MATCHING || screen===Screen.READY){
+          sysToast('连接已断开');
+        }
+      };
+    });
+  }
+
+  function startPing(){
+    stopPing();
+    pingTimer=setInterval(()=>{
+      if(ws && ws.readyState===1) ws.send(JSON.stringify({type:'ping', t:Date.now()}));
+    }, 8000);
+  }
+  function stopPing(){ if(pingTimer){clearInterval(pingTimer);pingTimer=null} }
+
+  function netSend(obj){
+    if(ws && ws.readyState===1) ws.send(JSON.stringify(obj));
+  }
+
+  function applyFactionUI(){
+    const mine = FACTION[myTeam] || FACTION.red;
+    const opp = FACTION[oppTeam] || FACTION.blue;
+    ui.readyFaction.className = 'faction-badge ' + mine.id;
+    ui.readyFaction.querySelector('.dot').style.background = mine.color;
+    ui.readyFactionText.textContent = '你是' + mine.name;
+    ui.factionDot.style.background = mine.color;
+    ui.youDot.style.background = mine.color;
+    ui.oppDot.style.background = opp.color;
+    ui.youLabel.textContent = '你 · ' + (mine.id==='red'?'红':'蓝');
+    ui.oppLabel.textContent = '对手 · ' + (opp.id==='red'?'红':'蓝');
+    ui.scoreYou.className = 'score-side ' + mine.id;
+    ui.scoreOpp.className = 'score-side ' + opp.id;
+  }
+
+  function onNet(msg){
+    switch(msg.type){
+      case 'pong': break;
+      case 'match.queued':
+        matchLeft = Math.ceil((msg.timeoutMs||15000)/1000);
+        startMatchCountdown();
+        break;
+      case 'match.timeout':
+        stopMatchCountdown();
+        setScreen(Screen.LOBBY);
+        sysToast('暂时没人，稍后再试');
+        break;
+      case 'match.found':
+        opponentName = (msg.opponent && (msg.opponent.playerName||msg.opponent.playerId)) || '对手';
+        if(msg.opponent && msg.opponent.playerId) opponentId = msg.opponent.playerId;
+        if(msg.youTeam) myTeam = msg.youTeam;
+        if(msg.opponent && msg.opponent.team) oppTeam = msg.opponent.team;
+        if(msg.mode) mode = msg.mode;
+        ui.readyNames.textContent = `你（${playerName}） · ${opponentName}`;
+        break;
+      case 'room.start':
+        roomCfg = msg.config || {};
+        killTargetK = roomCfg.killTargetK || killTargetK;
+        livesN = roomCfg.livesN!=null ? roomCfg.livesN : livesN;
+        mode = msg.mode || mode || 'shared_map';
+        myTeam = (msg.you && msg.you.team) || myTeam || 'red';
+        oppTeam = (msg.opponent && msg.opponent.team) || (myTeam==='red'?'blue':'red');
+        if(msg.you && msg.you.playerId) playerId = msg.you.playerId;
+        if(msg.opponent && msg.opponent.playerId) opponentId = msg.opponent.playerId;
+        scoreYou = {kills: msg.you?.kills||0, lives: msg.you?.lives??livesN, alive:true, reviveAt:null, speedMul:1, team:myTeam};
+        scoreOpp = {kills: msg.opponent?.kills||0, lives: msg.opponent?.lives??livesN, alive:true, reviveAt:null, speedMul:1, team:oppTeam};
+        applyFactionUI();
+        useAuthority=false;
+        useFallback=true;
+        stopMatchCountdown();
+        setScreen(Screen.READY);
+        startBattle(msg.seed);
+        setTimeout(()=>{
+          if(screen===Screen.READY){
+            setScreen(Screen.INGAME);
+            updateScoreUI();
+            showMessage('同图开战 · 无迷雾');
+          }
+        }, 1200);
+        break;
+      case 'world.snapshot':
+        applyWorldSnapshot(msg);
+        break;
+      case 'world.pause':
+        worldPaused=true;
+        break;
+      case 'world.resume':
+        worldPaused=false;
+        break;
+      case 'room.score':
+        scoreYou = Object.assign(scoreYou, msg.you||{});
+        scoreOpp = Object.assign(scoreOpp, msg.opponent||{});
+        if(msg.you && msg.you.team) myTeam = msg.you.team;
+        if(msg.opponent && msg.opponent.team) oppTeam = msg.opponent.team;
+        if(msg.lagBonusOn==='you') ui.lagTip.classList.add('on');
+        else ui.lagTip.classList.remove('on');
+        if(msg.lagBonusOn==='you' && lastLagBonusOn!=='you') showMessage('移速补偿生效');
+        else if(lastLagBonusOn==='you' && msg.lagBonusOn!=='you') showMessage('补偿结束');
+        lastLagBonusOn = msg.lagBonusOn;
+        if(player && scoreYou.alive && scoreYou.lives>0 && !downed && player.hp<=0){
+          player.hp = player.maxHp;
+          player.invuln = Math.max(player.invuln||0, 0.55);
+        }
+        applyFactionUI();
+        updateScoreUI();
+        break;
+      case 'combat.kill_ack':
+        if(msg.killerId===playerId){
+          scoreYou.kills = msg.kills!=null?msg.kills:scoreYou.kills;
+          updateScoreUI();
+        }
+        break;
+      case 'combat.inject':
+        if(msg.to===playerId){
+          if(msg.queued) break;
+          if(useFallback && !useAuthority) spawnInjected(msg.enemyType, myTeam, playerId);
+          const now=performance.now();
+          if(now-injectBurst.t<800){ injectBurst.n++; }
+          else { injectBurst={n:1,t:now}; }
+          injectBurst.t=now;
+          showMessage(injectBurst.n>1 ? `对手塞来 ×${injectBurst.n}` : `对手塞来 · ${typeName(msg.enemyType)}`);
+        }
+        break;
+      case 'combat.inject_denied':
+        {
+          const now=performance.now();
+          if(now-injectDeniedAt>10000){
+            injectDeniedAt=now;
+            sysToast(msg.message||'注入暂不可用', 1000);
+          }
+        }
+        break;
+      case 'combat.down':
+        if(msg.playerId===playerId) enterRevive(msg.reviveAt);
+        else {
+          scoreOpp.alive=false;
+          if(foe) foe.alive=false;
+          updateScoreUI();
+        }
+        break;
+      case 'combat.revive':
+        if(msg.playerId===playerId){
+          doLocalRevive(msg.lives||livesN);
+        } else {
+          scoreOpp.lives = msg.lives||livesN;
+          scoreOpp.alive = true;
+          if(foe){ foe.alive=true; foe.invuln=0.55; }
+          updateScoreUI();
+        }
+        break;
+      case 'room.end':
+        showResult(msg);
+        break;
+      case 'error':
+        if(msg.code==='already_matched') sysToast(msg.message||'已在匹配中');
+        break;
+    }
+  }
+
+  function typeName(t){
+    return t==='swift'?'疾影':t==='watcher'?'守望':'游魂';
+  }
+
+  function startMatchCountdown(){
+    stopMatchCountdown();
+    ui.matchRemain.textContent = `剩余 ${matchLeft}s`;
+    matchTimer=setInterval(()=>{
+      matchLeft--;
+      if(matchLeft<0) matchLeft=0;
+      ui.matchRemain.textContent = `剩余 ${matchLeft}s`;
+      if(matchLeft<=0) stopMatchCountdown();
+    },1000);
+  }
+  function stopMatchCountdown(){
+    if(matchTimer){clearInterval(matchTimer);matchTimer=null}
+  }
+
+  function updateScoreUI(){
+    const K=killTargetK;
+    ui.killYou.textContent = `${scoreYou.kills} / ${K}`;
+    ui.killOpp.textContent = `${scoreOpp.kills} / ${K}`;
+    ui.heartsYou.innerHTML = hearts(scoreYou.alive?scoreYou.lives:0, livesN);
+    ui.heartsOpp.innerHTML = hearts(scoreOpp.alive?scoreOpp.lives:0, livesN);
+    ui.progYou.style.width = (100*Math.min(1, scoreYou.kills/K))+'%';
+    ui.progOpp.style.width = (100*Math.min(1, scoreOpp.kills/K))+'%';
+  }
+
+  // ---------- Game ----------
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let W=0,H=0;
   function resize(){
-    W = innerWidth; H = innerHeight;
-    canvas.width = Math.floor(W*DPR);
-    canvas.height = Math.floor(H*DPR);
-    canvas.style.width = W+'px';
-    canvas.style.height = H+'px';
+    W=innerWidth; H=innerHeight;
+    canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
   addEventListener('resize', resize); resize();
 
-  const world = { w:3600, h:3600 };
-  const keys = new Set();
-  const stick = { x:0, y:0 };
+  const world={w:1600,h:1000};
+  const keys=new Set();
+  const stick={x:0,y:0};
+  let player, foe, enemies, orbs, particles, flashes, trail;
+  let localKills=0, elapsed=0, spawnClock=0, difficulty=1;
+  let paused=false, downed=false, battleActive=false;
+  let camera={x:0,y:0};
+  let rng = Math.random;
+  let baseSpeed=220;
+  let upgradeSpeedMul=1;
+  let levelUpQueued=false;
+  let deathPending=false;
+  let moveDir={x:0,y:0};
 
-  let me, foe;           // players
-  let enemies = [];
-  let orbs = [], particles = [], flashes = [];
-  let trailMe = [], trailFoe = [];
-  let killsMe = 0, killsFoe = 0;
-  let elapsed = 0, spawnClock = 0, difficulty = 1;
-  let battleActive = false;
-  let camera = { x:0, y:0 };
-  let myFaction = FACTION.red;
-  let foeFaction = FACTION.blue;
+  const rand=(a,b)=>a+rng()*(b-a);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by;return dx*dx+dy*dy};
 
-  const rand = (a,b)=>a+Math.random()*(b-a);
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const dist2 = (ax,ay,bx,by)=>{ const dx=ax-bx,dy=ay-by; return dx*dx+dy*dy; };
-  const fmtTime = (s)=>{ s=Math.floor(s); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
-
+  function mulberry32(a){
+    return function(){
+      let t=a+=0x6D2B79F5;
+      t=Math.imul(t^t>>>15,t|1);
+      t^=t+Math.imul(t^t>>>7,t|61);
+      return ((t^t>>>14)>>>0)/4294967296;
+    };
+  }
+  function fmtTime(s){
+    s=Math.floor(s); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  }
   function polygonArea(poly){
     let a=0;
     for(let i=0,j=poly.length-1;i<poly.length;j=i++) a+=(poly[j].x*poly[i].y-poly[i].x*poly[j].y);
@@ -295,629 +608,714 @@
   }
   function addParticle(x,y,kind='ink',count=7){
     for(let i=0;i<count;i++){
-      const a=Math.random()*Math.PI*2, s=rand(30,150);
+      const a=Math.random()*Math.PI*2,s=rand(30,150);
       particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.35,.75),max:.75,size:rand(2,5),kind});
     }
   }
 
-  // type stats — NO type color; color comes from faction only
+  // 类型只决定体型/速度；颜色一律走阵营
   function enemyStats(type){
-    return type==='swift'   ? { r:10, speed:132, sight:190, damage:10, xp:2 }
-         : type==='watcher' ? { r:16, speed:86,  sight:330, damage:16, xp:3 }
-         :                    { r:13, speed:96,  sight:245, damage:12, xp:1 };
+    return type==='swift' ? {r:10,speed:132,sight:190,damage:10,xp:2}
+      : type==='watcher' ? {r:16,speed:86,sight:330,damage:16,xp:3}
+      : {r:13,speed:96,sight:245,damage:12,xp:1};
   }
-  function typeName(t){ return t==='swift'?'疾影':t==='watcher'?'守望':'游魂'; }
 
-  function makePlayer(faction, x, y){
+  function makeActor(team, x, y, pid){
     return {
-      faction, x, y, r:13, speed:220,
-      hp:100, maxHp:100, invuln:1.2,
+      playerId: pid||null,
+      team, x, y, r:13, speed:220,
+      hp:100, maxHp:100, invuln:1.0,
       pickup:85, closureRadius:28, minLoopArea:2300,
       trailWidth:7, maxTrail:520,
       level:1, xp:0, xpNeed:12,
-      alive:true,
+      alive:true, vx:0, vy:0,
     };
   }
 
   function spawnEnemyNear(owner, forceNear=false, forcedType=null, isInject=false){
-    const angle = Math.random()*Math.PI*2;
-    let radius = forceNear ? rand(420,640) : rand(520,980);
-    if(isInject) radius = rand(360,580);
-    const x = clamp(owner.x + Math.cos(angle)*radius, 60, world.w-60);
-    const y = clamp(owner.y + Math.sin(angle)*radius, 60, world.h-60);
-    let type = forcedType;
+    const angle=Math.random()*Math.PI*2;
+    let radius=forceNear?rand(470,680):rand(560,1050);
+    if(isInject) radius=rand(380,620);
+    let x=clamp(owner.x+Math.cos(angle)*radius,60,world.w-60);
+    let y=clamp(owner.y+Math.sin(angle)*radius,60,world.h-60);
+    let type=forcedType;
     if(!type){
-      const roll = Math.random();
+      const roll=Math.random();
       type = roll < Math.min(.12 + elapsed/600, .24) ? 'swift' : roll > .91 ? 'watcher' : 'drifter';
     }
-    const st = enemyStats(type);
+    const st=enemyStats(type);
     enemies.push({
-      x,y, ...st, type,
-      faction: owner.faction.id,
-      ownerId: owner === me ? 'me' : 'foe',
+      x,y,...st,type,
+      team: owner.team,
+      ownerId: owner.playerId || (owner===player ? playerId : opponentId),
       state:'wander', angle:Math.random()*Math.PI*2,
       wanderT:rand(.5,2.5), alert:0, attackCd:0, hitFlash:0,
       injected:!!isInject, dead:false,
-      eid:'e_'+Math.random().toString(36).slice(2,9),
+      id:'e_'+Math.random().toString(36).slice(2,9),
     });
   }
 
-  function updateScoreUI(){
-    ui.killYou.textContent = `${killsMe} / ${K}`;
-    ui.killOpp.textContent = `${killsFoe} / ${K}`;
-    ui.progYou.style.width = (100*Math.min(1, killsMe/K))+'%';
-    ui.progOpp.style.width = (100*Math.min(1, killsFoe/K))+'%';
+  function spawnInjected(type, team, ownerId){
+    if(!battleActive || !VALID_TYPE(type)) return;
+    const owner = (ownerId===playerId || team===myTeam) ? player : foe;
+    if(!owner) return;
+    spawnEnemyNear(owner, true, type, true);
   }
+  function VALID_TYPE(t){ return t==='drifter'||t==='swift'||t==='watcher'; }
 
-  function gainXp(p, v){
-    p.xp += v;
-    while(p.xp >= p.xpNeed){
-      p.xp -= p.xpNeed;
-      p.level++;
-      p.xpNeed = Math.floor(12 + p.level*5.5 + p.level*p.level*.55);
-      if(p === me) showMessage('升级 · Lv '+p.level+'（升级暂停 UI · TODO）');
+  function applyWorldSnapshot(msg){
+    if(!battleActive && screen!==Screen.READY && screen!==Screen.INGAME) return;
+    if(typeof msg.seq==='number' && msg.seq < snapshotSeq) return;
+    snapshotSeq = msg.seq!=null ? msg.seq : snapshotSeq;
+    useAuthority = true;
+    useFallback = false;
+    ui.todoNote.classList.remove('show');
+    worldPaused = !!msg.paused;
+
+    const plist = Array.isArray(msg.players) ? msg.players : [];
+    for(const p of plist){
+      if(p.playerId===playerId){
+        if(player){
+          // 权威位置；轻微平滑
+          player.x = p.x; player.y = p.y;
+          player.vx = p.vx||0; player.vy = p.vy||0;
+          player.alive = p.alive!==false;
+          player.team = p.team || myTeam;
+        }
+        scoreYou.kills = p.kills!=null?p.kills:scoreYou.kills;
+        scoreYou.lives = p.lives!=null?p.lives:scoreYou.lives;
+        scoreYou.alive = p.alive!==false;
+        scoreYou.speedMul = p.speedMul!=null?p.speedMul:scoreYou.speedMul;
+        scoreYou.reviveAt = p.reviveAt;
+        if(p.team) myTeam = p.team;
+        if(!p.alive && !downed) enterRevive(p.reviveAt);
+        if(p.alive && downed){ /* wait combat.revive */ }
+      } else {
+        opponentId = p.playerId || opponentId;
+        if(!foe) foe = makeActor(p.team||oppTeam, p.x, p.y, p.playerId);
+        foe.playerId = p.playerId;
+        foe.x = p.x; foe.y = p.y;
+        foe.vx = p.vx||0; foe.vy = p.vy||0;
+        foe.alive = p.alive!==false;
+        foe.team = p.team || oppTeam;
+        scoreOpp.kills = p.kills!=null?p.kills:scoreOpp.kills;
+        scoreOpp.lives = p.lives!=null?p.lives:scoreOpp.lives;
+        scoreOpp.alive = p.alive!==false;
+        scoreOpp.speedMul = p.speedMul!=null?p.speedMul:1;
+        if(p.team) oppTeam = p.team;
+      }
     }
+
+    const elist = Array.isArray(msg.enemies) ? msg.enemies : [];
+    enemies = elist.map(e=>{
+      const type = e.enemyType || e.type || 'drifter';
+      const st = enemyStats(type);
+      return {
+        id: e.id,
+        x: e.x, y: e.y,
+        ...st,
+        type,
+        team: e.team || ((e.ownerId===playerId)?myTeam:oppTeam),
+        ownerId: e.ownerId,
+        hp: e.hp!=null?e.hp:1,
+        state:'wander', angle:0, wanderT:1, alert:0, attackCd:0, hitFlash:0,
+        injected:false, dead:false,
+      };
+    });
+    applyFactionUI();
+    updateScoreUI();
   }
 
-  // 圈杀钩子：只能杀己方怪；对面怪圈中无效
-  function tryCloseLoop(owner, trail){
-    const n = trail.length;
-    if(n < 24) return trail;
-    const cur = trail[n-1];
+  function killEnemyLocal(e, byLoop=true){
+    if(e.dead) return;
+    e.dead=true; localKills++;
+    addParticle(e.x,e.y,'enemy',10);
+    const n=e.xp;
+    for(let i=0;i<n;i++) orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),vx:rand(-20,20),vy:rand(-20,20),value:1});
+  }
+
+  function tryCloseLoop(){
+    const n=trail.length;
+    if(n<24) return;
+    const cur=trail[n-1];
     let best=-1, bestD=Infinity;
-    const r2 = owner.closureRadius * owner.closureRadius;
+    const r2=player.closureRadius*player.closureRadius;
     for(let i=Math.max(0,n-250); i<n-16; i++){
-      const p = trail[i];
-      const d = dist2(cur.x,cur.y,p.x,p.y);
-      if(d<r2 && d<bestD){ best=i; bestD=d; }
+      const p=trail[i];
+      const d=dist2(cur.x,cur.y,p.x,p.y);
+      if(d<r2 && d<bestD){best=i;bestD=d;}
     }
-    if(best < 0) return trail;
-    const poly = trail.slice(best).map(p=>({x:p.x,y:p.y}));
-    if(poly.length < 16) return trail;
-    if(polygonArea(poly) < owner.minLoopArea) return trail;
+    if(best<0) return;
+    const poly=trail.slice(best).map(p=>({x:p.x,y:p.y}));
+    if(poly.length<16) return;
+    const area=polygonArea(poly);
+    if(area<player.minLoopArea) return;
 
-    let countOwn = 0, countEnemyFaction = 0;
-    const killedTypes = [];
-    for(const e of enemies){
-      if(e.dead) continue;
-      if(!pointInPoly(e.x, e.y, poly)) continue;
-      if(e.faction === owner.faction.id){
-        e.dead = true;
-        countOwn++;
-        killedTypes.push(e.type);
-        addParticle(e.x, e.y, 'enemy', 10);
-        if(owner === me){
-          killsMe++;
-          const nOrb = e.xp;
-          for(let i=0;i<nOrb;i++) orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),vx:rand(-20,20),vy:rand(-20,20),value:1,target:'me'});
-        } else {
-          killsFoe++;
-          const nOrb = e.xp;
-          for(let i=0;i<nOrb;i++) orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),vx:rand(-20,20),vy:rand(-20,20),value:1,target:'foe'});
-        }
-      } else {
-        countEnemyFaction++;
+    // 上报 input.loop（协议）；权威服裁决
+    const points = poly.map(p=>[Math.round(p.x*100)/100, Math.round(p.y*100)/100]);
+    seq++;
+    netSend({type:'input.loop', points, seq});
+
+    let countOwn=0, countOpp=0;
+    if(useFallback && !useAuthority){
+      for(const e of enemies){
+        if(e.dead) continue;
+        if(!pointInPoly(e.x,e.y,poly)) continue;
+        const own = (e.ownerId===playerId) || (e.team===myTeam);
+        if(own){
+          killEnemyLocal(e,true);
+          countOwn++;
+          // fallback：仍发旧 combat.kill 兼容 mock；真服用 input.loop
+          netSend({type:'combat.kill', enemyType:e.type, enemyId:e.id, seq});
+          // mock 塞敌本地表现
+          if(foe) spawnEnemyNear(foe, true, e.type, true);
+        } else countOpp++;
       }
-    }
-    flashes.push({ poly, life:.55, max:.55, count:countOwn, faction:owner.faction.id });
-    addParticle(owner.x, owner.y, 'ink', 12);
-
-    if(owner === me){
-      if(countOwn > 0){
-        showMessage('封圈 · '+countOwn+' 杀');
-        // mock 塞敌：杀己方 1 怪 → 对面场上 +1 同种（对面阵营）
-        for(const t of killedTypes){
-          spawnEnemyNear(foe, true, t, true);
-        }
-        setTimeout(()=>{
-          if(battleActive) showMessage(killedTypes.length>1 ? `已塞给对手 ×${killedTypes.length}` : '已塞给对手');
-        }, 650);
+      if(countOwn>0){
+        scoreYou.kills += countOwn;
         updateScoreUI();
-      } else if(countEnemyFaction > 0){
+        showMessage('封圈 · '+countOwn+' 杀');
+        const now=performance.now();
+        if(now-injectHintAt>1800){
+          injectHintAt=now;
+          setTimeout(()=>{ if(battleActive && screen===Screen.INGAME) showMessage('已塞给对手'); }, 650);
+        }
+      } else if(countOpp>0){
         showMessage('空圈（对面怪不可杀）');
-      } else {
-        showMessage('空圈');
+      } else showMessage('空圈');
+    } else {
+      // 权威模式：本地只做反馈 toast，实体以 snapshot 为准
+      let ownIn=0, oppIn=0;
+      for(const e of enemies){
+        if(e.dead) continue;
+        if(!pointInPoly(e.x,e.y,poly)) continue;
+        if((e.ownerId===playerId)||(e.team===myTeam)) ownIn++; else oppIn++;
       }
-    } else if(countOwn > 0){
-      // foe mock kill → inject to me
-      for(const t of killedTypes) spawnEnemyNear(me, true, t, true);
-      updateScoreUI();
-      showMessage('对手塞来 ×'+countOwn);
+      if(ownIn>0) showMessage('封圈 · '+ownIn+' 杀');
+      else if(oppIn>0) showMessage('空圈（对面怪不可杀）');
+      else showMessage('空圈');
     }
 
-    return [{ x:owner.x, y:owner.y, t:elapsed }];
+    flashes.push({poly,life:.55,max:.55,count:countOwn});
+    addParticle(player.x,player.y,'ink',15);
+    trail=[{x:player.x,y:player.y,t:elapsed}];
   }
 
-  function updateEnemy(e, dt){
-    e.attackCd = Math.max(0, e.attackCd-dt);
-    e.hitFlash = Math.max(0, e.hitFlash-dt);
-    // 怪只攻击自己的主人
-    const owner = e.ownerId === 'me' ? me : foe;
-    if(!owner.alive){
-      e.wanderT -= dt;
-      if(e.wanderT<=0){ e.wanderT=rand(1,3.4); e.angle+=rand(-1.6,1.6); }
+  function gainXp(v){
+    player.xp += v;
+    if(player.xp >= player.xpNeed && !paused){
+      player.xp -= player.xpNeed;
+      player.level++;
+      player.xpNeed = Math.floor(12 + player.level*5.5 + player.level*player.level*.55);
+      if(downed){ levelUpQueued=true; }
+      else openLevelUp();
+    }
+  }
+
+  const upgrades = [
+    {icon:'➜',name:'轻步',desc:'移动速度 +12%，更容易迅速拉出大圈。',apply:()=>{upgradeSpeedMul*=1.12}},
+    {icon:'◯',name:'宽容收笔',desc:'闭合判定距离 +5px，封圈更容易触发。',apply:()=>player.closureRadius+=5},
+    {icon:'✦',name:'长锋画笔',desc:'保留的移动轨迹长度 +18%。',apply:()=>player.maxTrail=Math.floor(player.maxTrail*1.18)},
+    {icon:'❤',name:'厚纸',desc:'最大生命 +25，并立即恢复 25。',apply:()=>{player.maxHp+=25;player.hp=Math.min(player.maxHp,player.hp+25)}},
+    {icon:'◎',name:'吸墨',desc:'经验吸取半径 +45。',apply:()=>player.pickup+=45},
+    {icon:'⌁',name:'粗笔',desc:'画笔轨迹更明显；封圈时获得 0.45 秒无敌。',apply:()=>{player.trailWidth+=1.8; player.invuln=Math.max(player.invuln,.45)}},
+    {icon:'◇',name:'大构图',desc:'最小封圈面积 -14%，小圈也更容易生效。',apply:()=>player.minLoopArea=Math.max(900,player.minLoopArea*.86)},
+    {icon:'✚',name:'修补',desc:'立刻恢复 45 点生命。',apply:()=>player.hp=Math.min(player.maxHp,player.hp+45)}
+  ];
+
+  function openLevelUp(){
+    paused=true; ui.levelup.style.display='flex'; ui.cards.innerHTML='';
+    ui.levelup.onclick=(e)=>{ if(e.target===ui.levelup) e.stopPropagation(); };
+    const pool=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);
+    for(const up of pool){
+      const b=document.createElement('button'); b.className='card';
+      b.innerHTML=`<div class="icon">${up.icon}</div><h3>${up.name}</h3><p>${up.desc}</p>`;
+      b.onclick=()=>{
+        up.apply();
+        ui.levelup.style.display='none';
+        paused=false;
+        showMessage(up.name+' 已强化');
+        netSend({type:'meta.levelup', level:player.level, choiceId:up.name});
+      };
+      ui.cards.appendChild(b);
+    }
+  }
+
+  function updateEnemy(e,dt){
+    // 权威模式下怪由服务端驱动，本地不 AI
+    if(useAuthority) return;
+    e.attackCd=Math.max(0,e.attackCd-dt); e.hitFlash=Math.max(0,e.hitFlash-dt);
+    const owner = ((e.ownerId===playerId)||(e.team===myTeam)) ? player : foe;
+    if(!owner || !owner.alive){
+      e.wanderT-=dt;
+      if(e.wanderT<=0){e.wanderT=rand(1,3.4);e.angle+=rand(-1.6,1.6);}
       const vx=Math.cos(e.angle)*e.speed*.27, vy=Math.sin(e.angle)*e.speed*.27;
       e.x=clamp(e.x+vx*dt,e.r,world.w-e.r); e.y=clamp(e.y+vy*dt,e.r,world.h-e.r);
       return;
     }
     const dx=owner.x-e.x, dy=owner.y-e.y, d=Math.hypot(dx,dy);
     if(d < e.sight){ e.state='alert'; e.alert=1.1; }
-    else if(e.alert>0) e.alert-=dt;
+    else if(e.alert>0){ e.alert-=dt; }
     else e.state='wander';
 
-    let vx=0, vy=0;
+    let vx=0,vy=0;
     if(e.state==='alert'){
-      const inv=1/(d||1);
-      const mul=1+Math.min(elapsed/240,.34);
-      vx=dx*inv*e.speed*mul; vy=dy*inv*e.speed*mul;
+      const inv=1/(d||1); vx=dx*inv*e.speed*(1+Math.min(elapsed/240,.34)); vy=dy*inv*e.speed*(1+Math.min(elapsed/240,.34));
       e.angle=Math.atan2(vy,vx);
-    } else {
+    }else{
       e.wanderT-=dt;
-      if(e.wanderT<=0){ e.wanderT=rand(1,3.4); e.angle+=rand(-1.6,1.6); }
+      if(e.wanderT<=0){e.wanderT=rand(1,3.4);e.angle+=rand(-1.6,1.6);}
       vx=Math.cos(e.angle)*e.speed*.27; vy=Math.sin(e.angle)*e.speed*.27;
     }
-    e.x=clamp(e.x+vx*dt,e.r,world.w-e.r);
-    e.y=clamp(e.y+vy*dt,e.r,world.h-e.r);
+    e.x=clamp(e.x+vx*dt,e.r,world.w-e.r); e.y=clamp(e.y+vy*dt,e.r,world.h-e.r);
 
-    const rr = owner.r + e.r;
-    if(d < rr+3 && e.attackCd<=0 && owner.invuln<=0){
-      owner.hp -= e.damage;
-      owner.invuln = .55;
-      e.attackCd = .8;
-      e.hitFlash = .18;
-      const push=20/(d||1);
-      owner.x=clamp(owner.x+dx*push,owner.r,world.w-owner.r);
-      owner.y=clamp(owner.y+dy*push,owner.r,world.h-owner.r);
-      addParticle(owner.x, owner.y, 'hurt', 8);
-      if(owner.hp <= 0){
-        owner.hp = 0;
-        owner.alive = false;
-        owner.invuln = 1;
-        // 节点2：简易倒地；完整 5s 复活留给后续
-        if(owner === me) showMessage('倒地（复活精修 · TODO）');
-        setTimeout(()=>{
-          if(!battleActive) return;
-          owner.alive = true;
-          owner.hp = owner.maxHp;
-          owner.invuln = 0.55;
-          if(owner === me) showMessage('已复活（mock）');
-        }, 2000);
+    // 怪只打主人
+    if(owner===player && !downed){
+      const rr=player.r+e.r;
+      if(d<rr+3 && e.attackCd<=0 && player.invuln<=0){
+        player.hp-=e.damage; player.invuln=.55; e.attackCd=.8; e.hitFlash=.18;
+        const push=20/(d||1); player.x=clamp(player.x+dx*push,player.r,world.w-player.r); player.y=clamp(player.y+dy*push,player.r,world.h-player.r);
+        addParticle(player.x,player.y,'hurt',8);
+        if(player.hp<=0) onLocalDeath();
       }
     }
   }
 
-  function movePlayer(p, mx, my, dt, trailRef){
-    if(!p.alive) return trailRef;
-    const ml = Math.hypot(mx, my);
-    if(ml <= 0) return trailRef;
-    mx/=ml; my/=ml;
-    const ox=p.x, oy=p.y;
-    p.x = clamp(p.x + mx*p.speed*dt, p.r, world.w-p.r);
-    p.y = clamp(p.y + my*p.speed*dt, p.r, world.h-p.r);
-    if(Math.hypot(p.x-ox, p.y-oy) > .01){
-      const last = trailRef[trailRef.length-1];
-      if(!last || dist2(p.x,p.y,last.x,last.y) > 9*9){
-        trailRef.push({ x:p.x, y:p.y, t:elapsed });
-        if(trailRef.length > p.maxTrail) trailRef.shift();
-        trailRef = tryCloseLoop(p, trailRef);
-      }
+  function onLocalDeath(){
+    if(downed || !battleActive || deathPending) return;
+    deathPending=true;
+    player.hp=0;
+    player.invuln=1.0;
+    seq++;
+    netSend({type:'combat.hit', damageLives:1, seq});
+    if((scoreYou.lives||1) > 1){
+      setTimeout(()=>{
+        deathPending=false;
+        if(!downed && battleActive && scoreYou.alive && scoreYou.lives>0){
+          player.hp=player.maxHp;
+          player.invuln=0.55;
+        }
+      }, 80);
+    } else {
+      enterRevive(Date.now() + ((netConfig && netConfig.reviveMs) || 5000));
     }
-    return trailRef;
+  }
+
+  let reviveLocalTimer=null;
+  function enterRevive(reviveAt){
+    downed=true;
+    if(player) player.alive=false;
+    if(ui.levelup.style.display==='flex' || paused) levelUpQueued=true;
+    paused=false;
+    ui.levelup.style.display='none';
+    ui.revive.style.display='flex';
+    let at=Number(reviveAt);
+    if(!Number.isFinite(at) || at<=0){
+      const ms=(netConfig&&netConfig.reviveMs)||(roomCfg&&roomCfg.reviveMs)||5000;
+      at=Date.now()+ms;
+    }
+    const tick=()=>{
+      const left=Math.max(0, Math.ceil((at-Date.now())/1000));
+      ui.reviveCount.textContent=String(left);
+    };
+    tick();
+    clearInterval(reviveLocalTimer);
+    reviveLocalTimer=setInterval(tick, 200);
+  }
+
+  function doLocalRevive(lives){
+    deathPending=false;
+    clearInterval(reviveLocalTimer);
+    ui.revive.style.display='none';
+    downed=false;
+    scoreYou.lives=lives;
+    scoreYou.alive=true;
+    player.alive=true;
+    player.hp=player.maxHp;
+    player.invuln=0.55;
+    if(!useAuthority){
+      player.x=world.w/2; player.y=world.h/2;
+    }
+    trail=[{x:player.x,y:player.y,t:elapsed}];
+    updateScoreUI();
+    if(levelUpQueued){ levelUpQueued=false; openLevelUp(); }
+  }
+
+  function updateFoeAI(dt){
+    if(!foe || !foe.alive || useAuthority) return;
+    // 轻量游荡 + 轻微朝向己方
+    foe._aiT = (foe._aiT||0) - dt;
+    if(foe._aiT<=0){
+      foe._aiT = rand(0.6, 1.8);
+      const ang = Math.atan2(player.y-foe.y, player.x-foe.x) + rand(-0.9,0.9);
+      foe._ax = Math.cos(ang); foe._ay = Math.sin(ang);
+    }
+    const sp = 160;
+    foe.x = clamp(foe.x + (foe._ax||0)*sp*dt, foe.r, world.w-foe.r);
+    foe.y = clamp(foe.y + (foe._ay||0)*sp*dt, foe.r, world.h-foe.r);
+  }
+
+  function reportMove(dt){
+    moveReportAccum += dt;
+    if(moveReportAccum < 0.05) return; // ~20Hz
+    moveReportAccum = 0;
+    const x = moveDir.x, y = moveDir.y;
+    if(x===lastMoveSent.x && y===lastMoveSent.y && x===0 && y===0) return;
+    lastMoveSent={x,y};
+    seq++;
+    netSend({type:'input.move', x, y, seq});
   }
 
   function update(dt){
-    if(!battleActive || screen !== 'ingame') {
-      if(msgTimer>0){ msgTimer-=dt; if(msgTimer<=0) ui.message.style.opacity='0'; }
+    if(!battleActive || screen===Screen.RESULT) return;
+    player.speed = baseSpeed * upgradeSpeedMul * (scoreYou.speedMul || 1);
+
+    if(paused || worldPaused){
+      if(msgTimer>0){msgTimer-=dt;if(msgTimer<=0)ui.message.style.opacity='0';}
+      reportMove(dt); // 仍可上报 0 方向
       return;
     }
-    elapsed += dt;
-    difficulty = 1 + elapsed/75;
-    me.invuln = Math.max(0, me.invuln-dt);
-    foe.invuln = Math.max(0, foe.invuln-dt);
 
-    // 双方各自刷怪（同图共享列表）
-    spawnClock -= dt;
-    if(spawnClock <= 0){
-      spawnClock = Math.max(.28, 1.15/difficulty);
-      if(enemies.filter(e=>e.ownerId==='me').length < 70) spawnEnemyNear(me);
-      if(enemies.filter(e=>e.ownerId==='foe').length < 70) spawnEnemyNear(foe);
+    elapsed+=dt; difficulty=1+elapsed/75;
+    player.invuln=Math.max(0,player.invuln-dt);
+    if(foe) foe.invuln=Math.max(0,(foe.invuln||0)-dt);
+
+    // fallback 刷怪：双方各刷
+    if(useFallback && !useAuthority){
+      spawnClock-=dt;
+      if(spawnClock<=0){
+        spawnClock=Math.max(.28,1.05/difficulty);
+        if(enemies.filter(e=>e.team===myTeam).length<70) spawnEnemyNear(player);
+        if(foe && enemies.filter(e=>e.team===oppTeam).length<70) spawnEnemyNear(foe);
+      }
     }
 
-    // 你：WASD / stick
-    let mx=0, my=0;
-    if(keys.has('KeyW')||keys.has('ArrowUp')) my--;
-    if(keys.has('KeyS')||keys.has('ArrowDown')) my++;
-    if(keys.has('KeyA')||keys.has('ArrowLeft')) mx--;
-    if(keys.has('KeyD')||keys.has('ArrowRight')) mx++;
-    mx += stick.x; my += stick.y;
-    trailMe = movePlayer(me, mx, my, dt, trailMe);
+    moveDir={x:0,y:0};
+    if(!downed && player.alive!==false){
+      let mx=0,my=0;
+      if(keys.has('KeyW')||keys.has('ArrowUp')) my--;
+      if(keys.has('KeyS')||keys.has('ArrowDown')) my++;
+      if(keys.has('KeyA')||keys.has('ArrowLeft')) mx--;
+      if(keys.has('KeyD')||keys.has('ArrowRight')) mx++;
+      mx+=stick.x; my+=stick.y;
+      const ml=Math.hypot(mx,my);
+      if(ml>0){ mx/=ml; my/=ml; }
+      moveDir={x:mx,y:my};
 
-    // 对手：IJKL（本地第二玩家）或简单 AI 游荡
-    let fx=0, fy=0;
-    if(keys.has('KeyI')) fy--;
-    if(keys.has('KeyK')) fy++;
-    if(keys.has('KeyJ')) fx--;
-    if(keys.has('KeyL')) fx++;
-    if(fx===0 && fy===0){
-      // 轻量 AI：朝最近己方怪旁绕行，保证同屏可见
-      foe._aiT = (foe._aiT||0) - dt;
-      if(foe._aiT <= 0){
-        foe._aiT = rand(0.8, 2.2);
-        const own = enemies.filter(e=>!e.dead && e.ownerId==='foe');
-        if(own.length){
-          const t = own[Math.floor(Math.random()*Math.min(own.length,6))];
-          foe._aiTx = t.x + rand(-80,80);
-          foe._aiTy = t.y + rand(-80,80);
-        } else {
-          foe._aiTx = foe.x + rand(-280,280);
-          foe._aiTy = foe.y + rand(-280,280);
+      // 权威模式：本地预测移动；快照会纠正
+      // fallback：本地权威移动
+      if(ml>0){
+        const ox=player.x,oy=player.y;
+        player.x=clamp(player.x+mx*player.speed*dt,player.r,world.w-player.r);
+        player.y=clamp(player.y+my*player.speed*dt,player.r,world.h-player.r);
+        if(Math.hypot(player.x-ox,player.y-oy)>.01){
+          const last=trail[trail.length-1];
+          if(!last || dist2(player.x,player.y,last.x,last.y)>9*9){
+            trail.push({x:player.x,y:player.y,t:elapsed});
+            if(trail.length>player.maxTrail) trail.shift();
+            tryCloseLoop();
+          }
         }
       }
-      const adx=(foe._aiTx||foe.x)-foe.x, ady=(foe._aiTy||foe.y)-foe.y;
-      const ad=Math.hypot(adx,ady)||1;
-      fx=adx/ad; fy=ady/ad;
     }
-    trailFoe = movePlayer(foe, fx, fy, dt, trailFoe);
+    reportMove(dt);
 
-    for(const e of enemies) if(!e.dead) updateEnemy(e, dt);
-    enemies = enemies.filter(e=>!e.dead);
+    if(useFallback && !useAuthority){
+      updateFoeAI(dt);
+      for(const e of enemies) if(!e.dead) updateEnemy(e,dt);
+      enemies=enemies.filter(e=>!e.dead);
 
-    for(const o of orbs){
-      o.x+=o.vx*dt; o.y+=o.vy*dt; o.vx*=Math.pow(.08,dt); o.vy*=Math.pow(.08,dt);
-      const target = o.target==='me' ? me : foe;
-      if(!target.alive) continue;
-      const dx=target.x-o.x, dy=target.y-o.y, d=Math.hypot(dx,dy);
-      if(d<target.pickup){ const f=1-d/target.pickup; o.x+=dx*dt*(4+f*10); o.y+=dy*dt*(4+f*10); }
-      if(d<target.r+8){ o.dead=true; gainXp(target, o.value); }
+      if(!downed){
+        for(const o of orbs){
+          o.x+=o.vx*dt; o.y+=o.vy*dt; o.vx*=Math.pow(.08,dt);o.vy*=Math.pow(.08,dt);
+          const dx=player.x-o.x,dy=player.y-o.y,d=Math.hypot(dx,dy);
+          if(d<player.pickup){const f=1-d/player.pickup;o.x+=dx*dt*(4+f*10);o.y+=dy*dt*(4+f*10);}
+          if(d<player.r+8){o.dead=true;gainXp(o.value);}
+        }
+        orbs=orbs.filter(o=>!o.dead);
+      }
     }
-    orbs = orbs.filter(o=>!o.dead);
 
-    for(const p of particles){ p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=Math.pow(.09,dt); p.vy*=Math.pow(.09,dt); }
-    particles = particles.filter(p=>p.life>0);
+    for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.09,dt);p.vy*=Math.pow(.09,dt)}
+    particles=particles.filter(p=>p.life>0);
     for(const f of flashes) f.life-=dt;
-    flashes = flashes.filter(f=>f.life>0);
+    flashes=flashes.filter(f=>f.life>0);
 
-    const cx = me.alive ? me.x : camera.x;
-    const cy = me.alive ? me.y : camera.y;
+    const cx = (!downed && player) ? player.x : camera.x;
+    const cy = (!downed && player) ? player.y : camera.y;
     camera.x += (cx-camera.x)*(1-Math.pow(.001,dt));
     camera.y += (cy-camera.y)*(1-Math.pow(.001,dt));
 
-    if(msgTimer>0){ msgTimer-=dt; if(msgTimer<=0) ui.message.style.opacity='0'; }
+    if(msgTimer>0){msgTimer-=dt;if(msgTimer<=0)ui.message.style.opacity='0';}
     updateLocalUI();
   }
 
   function updateLocalUI(){
-    ui.level.textContent = me.level;
-    ui.time.textContent = fmtTime(elapsed);
-    ui.hp.textContent = Math.ceil(me.hp)+'/'+me.maxHp;
-    ui.xp.textContent = me.xp+'/'+me.xpNeed;
-    ui.hpFill.style.width = (100*clamp(me.hp/me.maxHp,0,1))+'%';
-    ui.xpFill.style.width = (100*clamp(me.xp/me.xpNeed,0,1))+'%';
+    if(!player) return;
+    ui.level.textContent=player.level;
+    ui.time.textContent=fmtTime(elapsed);
+    ui.hp.textContent=Math.ceil(player.hp)+'/'+player.maxHp;
+    ui.xp.textContent=player.xp+'/'+player.xpNeed;
+    ui.hpFill.style.width=(100*clamp(player.hp/player.maxHp,0,1))+'%';
+    ui.xpFill.style.width=(100*clamp(player.xp/player.xpNeed,0,1))+'%';
   }
 
-  function sx(x){ return x - camera.x + W/2; }
-  function sy(y){ return y - camera.y + H/2; }
-  function visible(x,y,pad=60){
-    const xx=sx(x), yy=sy(y);
-    return xx>-pad && xx<W+pad && yy>-pad && yy<H+pad;
-  }
+  function sx(x){return x-camera.x+W/2} function sy(y){return y-camera.y+H/2}
+  function visible(x,y,pad=60){const xx=sx(x),yy=sy(y);return xx>-pad&&xx<W+pad&&yy>-pad&&yy<H+pad}
 
   function drawGrid(){
-    ctx.fillStyle = '#101719';
-    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#101719';ctx.fillRect(0,0,W,H);
     const step=58;
     const ox=((W/2-camera.x)%step+step)%step, oy=((H/2-camera.y)%step+step)%step;
-    ctx.strokeStyle='rgba(232,226,205,.035)'; ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(232,226,205,.035)';ctx.lineWidth=1;
     ctx.beginPath();
-    for(let x=ox;x<W;x+=step){ ctx.moveTo(x,0); ctx.lineTo(x,H); }
-    for(let y=oy;y<H;y+=step){ ctx.moveTo(0,y); ctx.lineTo(W,y); }
+    for(let x=ox;x<W;x+=step){ctx.moveTo(x,0);ctx.lineTo(x,H)}
+    for(let y=oy;y<H;y+=step){ctx.moveTo(0,y);ctx.lineTo(W,y)}
     ctx.stroke();
-    const left=sx(0), right=sx(world.w), top=sy(0), bottom=sy(world.h);
-    ctx.strokeStyle='rgba(242,166,90,.18)'; ctx.lineWidth=4;
-    ctx.strokeRect(left, top, right-left, bottom-top);
-    // 无迷雾：不做暗角/视野遮罩
+    const left=sx(0),right=sx(world.w),top=sy(0),bottom=sy(world.h);
+    ctx.strokeStyle='rgba(242,166,90,.18)';ctx.lineWidth=4;ctx.strokeRect(left,top,right-left,bottom-top);
   }
-
-  function drawTrail(trail, faction, width){
-    if(trail.length < 2) return;
-    ctx.save();
-    ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.strokeStyle = faction.trail;
-    ctx.lineWidth = width + 8;
-    ctx.beginPath();
-    ctx.moveTo(sx(trail[0].x), sy(trail[0].y));
-    for(let i=1;i<trail.length;i++) ctx.lineTo(sx(trail[i].x), sy(trail[i].y));
-    ctx.stroke();
-    ctx.strokeStyle = faction.color;
-    ctx.globalAlpha = .85;
-    ctx.lineWidth = width;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+  function drawTrail(){
+    if(trail.length<2) return;
+    const fac = FACTION[myTeam]||FACTION.red;
+    ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.strokeStyle=fac.trail;ctx.lineWidth=player.trailWidth+9;ctx.beginPath();
+    ctx.moveTo(sx(trail[0].x),sy(trail[0].y));
+    for(let i=1;i<trail.length;i++)ctx.lineTo(sx(trail[i].x),sy(trail[i].y));ctx.stroke();
+    ctx.strokeStyle='#efcf98';ctx.lineWidth=player.trailWidth;ctx.beginPath();ctx.moveTo(sx(trail[0].x),sy(trail[0].y));
+    for(let i=1;i<trail.length;i++)ctx.lineTo(sx(trail[i].x),sy(trail[i].y));ctx.stroke();
+    ctx.strokeStyle='rgba(255,248,219,.75)';ctx.lineWidth=Math.max(1.2,player.trailWidth*.24);ctx.stroke();
     ctx.restore();
   }
-
   function drawFlashes(){
     for(const f of flashes){
-      const a = f.life/f.max;
-      const col = f.faction==='blue' ? '91,159,212' : '230,101,91';
-      ctx.beginPath();
-      ctx.moveTo(sx(f.poly[0].x), sy(f.poly[0].y));
-      for(let i=1;i<f.poly.length;i++) ctx.lineTo(sx(f.poly[i].x), sy(f.poly[i].y));
-      ctx.closePath();
-      ctx.fillStyle = `rgba(${col},${.16*a})`;
-      ctx.fill();
-      ctx.strokeStyle = `rgba(255,231,180,${.9*a})`;
-      ctx.lineWidth = 3+5*(1-a);
-      ctx.stroke();
+      const a=f.life/f.max;
+      ctx.beginPath();ctx.moveTo(sx(f.poly[0].x),sy(f.poly[0].y));
+      for(let i=1;i<f.poly.length;i++)ctx.lineTo(sx(f.poly[i].x),sy(f.poly[i].y));ctx.closePath();
+      ctx.fillStyle=`rgba(242,166,90,${.17*a})`;ctx.fill();
+      ctx.strokeStyle=`rgba(255,231,180,${.95*a})`;ctx.lineWidth=3+5*(1-a);ctx.stroke();
     }
   }
-
   function drawOrbs(){
-    for(const o of orbs){
-      if(!visible(o.x,o.y)) continue;
-      ctx.beginPath();
-      ctx.arc(sx(o.x), sy(o.y), 4.5, 0, Math.PI*2);
-      ctx.fillStyle = '#9bcf7f';
-      ctx.fill();
-    }
+    for(const o of orbs){if(!visible(o.x,o.y))continue;const x=sx(o.x),y=sy(o.y);ctx.beginPath();ctx.arc(x,y,4.5,0,Math.PI*2);ctx.fillStyle='#9bcf7f';ctx.fill();}
   }
 
-  // 类型用造型区分，颜色只用阵营色
+  // 类型造型区分；颜色=阵营。无迷雾裁剪（仅视口可见性）
   function drawEnemy(e){
-    if(!visible(e.x, e.y, e.r+40)) return;
-    const x = sx(e.x), y = sy(e.y);
-    const fac = FACTION[e.faction] || FACTION.red;
+    if(!visible(e.x,e.y,e.r+40)) return;
+    const x=sx(e.x), y=sy(e.y);
+    const fac = FACTION[e.team] || FACTION.red;
     const fill = e.hitFlash>0 ? '#fff2d5' : fac.fill;
-
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(e.angle);
-    ctx.shadowColor = 'rgba(0,0,0,.35)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-
-    if(e.type === 'swift'){
-      // 更小 + 后掠刺/翼
+    ctx.translate(x,y);
+    ctx.rotate(e.angle||0);
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=10; ctx.shadowOffsetY=3;
+    if(e.type==='swift'){
       ctx.beginPath();
-      ctx.moveTo(e.r*1.35, 0);
-      ctx.lineTo(-e.r*.55, -e.r*1.15);
-      ctx.lineTo(-e.r*.2, 0);
-      ctx.lineTo(-e.r*.55, e.r*1.15);
+      ctx.moveTo(e.r*1.35,0);
+      ctx.lineTo(-e.r*.55,-e.r*1.15);
+      ctx.lineTo(-e.r*.2,0);
+      ctx.lineTo(-e.r*.55,e.r*1.15);
       ctx.closePath();
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.fillStyle = '#2b2422';
-      ctx.beginPath(); ctx.arc(e.r*.25, -e.r*.22, 1.8, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(e.r*.25,  e.r*.22, 1.8, 0, Math.PI*2); ctx.fill();
-    } else if(e.type === 'watcher'){
-      // 更大 + 外环虚线眼圈
-      ctx.beginPath();
-      ctx.arc(0, 0, e.r, 0, Math.PI*2);
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.shadowColor = 'transparent';
-      ctx.setLineDash([3.5, 3.5]);
-      ctx.strokeStyle = 'rgba(255,248,230,.7)';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.arc(0, 0, e.r + 5, 0, Math.PI*2);
-      ctx.stroke();
+      ctx.fillStyle=fill; ctx.fill();
+      ctx.fillStyle='#2b2422';
+      ctx.beginPath(); ctx.arc(e.r*.25,-e.r*.22,1.8,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*.25, e.r*.22,1.8,0,Math.PI*2); ctx.fill();
+    } else if(e.type==='watcher'){
+      ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill();
+      ctx.shadowColor='transparent';
+      ctx.setLineDash([3.5,3.5]);
+      ctx.strokeStyle='rgba(255,248,230,.7)'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(0,0,e.r+5,0,Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
-      // 三角冠
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      ctx.moveTo(0, -e.r-8);
-      ctx.lineTo(-5, -e.r+1);
-      ctx.lineTo(5, -e.r+1);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#2b2422';
-      ctx.beginPath(); ctx.arc(e.r*.3, -e.r*.15, 2.4, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(e.r*.3,  e.r*.15, 2.4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle=fill;
+      ctx.beginPath(); ctx.moveTo(0,-e.r-8); ctx.lineTo(-5,-e.r+1); ctx.lineTo(5,-e.r+1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#2b2422';
+      ctx.beginPath(); ctx.arc(e.r*.3,-e.r*.15,2.4,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*.3, e.r*.15,2.4,0,Math.PI*2); ctx.fill();
     } else {
-      // drifter：圆形 + 双眼
-      ctx.beginPath();
-      ctx.arc(0, 0, e.r, 0, Math.PI*2);
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.shadowColor = 'transparent';
-      ctx.fillStyle = '#2b2422';
-      ctx.beginPath(); ctx.arc(e.r*.36, -e.r*.18, 2.2, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(e.r*.36,  e.r*.18, 2.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill();
+      ctx.shadowColor='transparent';
+      ctx.fillStyle='#2b2422';
+      ctx.beginPath(); ctx.arc(e.r*.36,-e.r*.18,2.2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*.36, e.r*.18,2.2,0,Math.PI*2); ctx.fill();
     }
-
-    ctx.shadowColor = 'transparent';
+    ctx.shadowColor='transparent';
     if(e.injected){
-      ctx.strokeStyle = 'rgba(242,166,90,.85)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, e.r + 4, 0, Math.PI*2);
-      ctx.stroke();
+      ctx.strokeStyle='rgba(242,166,90,.85)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(0,0,e.r+4,0,Math.PI*2); ctx.stroke();
     }
     ctx.restore();
   }
 
   function drawActor(p, isMe){
+    if(!p) return;
+    const fac = FACTION[p.team] || (isMe?FACTION[myTeam]:FACTION[oppTeam]) || FACTION.red;
     if(!p.alive){
-      // 半透倒地姿
       const x=sx(p.x), y=sy(p.y);
-      ctx.save();
-      ctx.globalAlpha = .35;
-      ctx.translate(x,y);
-      ctx.beginPath();
-      ctx.ellipse(0, 4, p.r*1.2, p.r*.55, 0, 0, Math.PI*2);
-      ctx.fillStyle = p.faction.fill;
-      ctx.fill();
-      ctx.restore();
+      ctx.save(); ctx.globalAlpha=.35; ctx.translate(x,y);
+      ctx.beginPath(); ctx.ellipse(0,4,p.r*1.2,p.r*.55,0,0,Math.PI*2);
+      ctx.fillStyle=fac.fill; ctx.fill(); ctx.restore();
       return;
     }
+    if(isMe && downed) return;
     const x=sx(p.x), y=sy(p.y);
-    const fac = p.faction;
-    ctx.save();
-    ctx.translate(x,y);
+    ctx.save(); ctx.translate(x,y);
     if(p.invuln>0){
-      ctx.beginPath();
-      ctx.arc(0,0, p.r+7+Math.sin(elapsed*22)*2, 0, Math.PI*2);
-      ctx.strokeStyle = isMe ? 'rgba(255,240,193,.65)' : fac.soft;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,p.r+7+Math.sin(elapsed*22)*2,0,Math.PI*2);
+      ctx.strokeStyle=isMe?'rgba(255,240,193,.65)':fac.soft; ctx.lineWidth=2; ctx.stroke();
     }
-    // 对手加对比描边，避免与怪混淆
     if(!isMe){
-      ctx.beginPath();
-      ctx.arc(0,0, p.r+3.5, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(255,248,230,.55)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,p.r+3.5,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,248,230,.55)'; ctx.lineWidth=2; ctx.stroke();
     }
-    ctx.shadowColor = fac.soft;
-    ctx.shadowBlur = 16;
-    ctx.beginPath();
-    ctx.arc(0,0, p.r, 0, Math.PI*2);
-    ctx.fillStyle = fac.fill;
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    // 简易人物细节（笔尖）
-    ctx.fillStyle = '#fffdf4';
-    ctx.beginPath(); ctx.arc(-3,-3, 3.6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#1c2428';
-    ctx.fillRect(-2, -6, 4, 12);
-    ctx.fillStyle = '#f0dfb6';
-    ctx.beginPath();
-    ctx.moveTo(-4,6); ctx.lineTo(4,6); ctx.lineTo(0,12); ctx.closePath();
-    ctx.fill();
-    // 头顶极小阵营色点
-    ctx.beginPath();
-    ctx.arc(0, -p.r-7, 3.2, 0, Math.PI*2);
-    ctx.fillStyle = fac.color;
-    ctx.fill();
+    ctx.shadowColor=fac.soft; ctx.shadowBlur=16;
+    ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fillStyle=fac.fill; ctx.fill();
+    ctx.shadowColor='transparent';
+    ctx.fillStyle='#fffdf4'; ctx.beginPath(); ctx.arc(-3,-3,3.6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1c2428'; ctx.fillRect(-2,-6,4,12);
+    ctx.fillStyle='#f0dfb6';
+    ctx.beginPath(); ctx.moveTo(-4,6); ctx.lineTo(4,6); ctx.lineTo(0,12); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(0,-p.r-7,3.2,0,Math.PI*2); ctx.fillStyle=fac.color; ctx.fill();
     ctx.restore();
-
-    // 名字
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(244,239,228,.7)';
-    ctx.fillText(isMe ? '你' : '对手', x, y - p.r - 14);
+    ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(244,239,228,.7)';
+    ctx.fillText(isMe?'你':'对手', x, y - p.r - 14);
   }
 
   function drawParticles(){
-    for(const p of particles){
-      if(!visible(p.x,p.y)) continue;
-      const a = clamp(p.life/p.max, 0, 1);
-      const color = p.kind==='enemy' ? 'rgba(224,100,83,' : p.kind==='hurt' ? 'rgba(255,224,183,' : 'rgba(241,208,151,';
-      ctx.fillStyle = color + a + ')';
-      ctx.beginPath();
-      ctx.arc(sx(p.x), sy(p.y), p.size*a+.5, 0, Math.PI*2);
-      ctx.fill();
-    }
+    for(const p of particles){if(!visible(p.x,p.y))continue;const a=clamp(p.life/p.max,0,1);const color=p.kind==='enemy'?'rgba(224,100,83,':p.kind==='hurt'?'rgba(255,224,183,':'rgba(241,208,151,';ctx.fillStyle=color+a+')';ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),p.size*a+.5,0,Math.PI*2);ctx.fill();}
   }
 
   function draw(){
     ctx.clearRect(0,0,W,H);
-    if(!battleActive && screen!=='ingame' && screen!=='ready'){
-      ctx.fillStyle = '#0f1517';
-      ctx.fillRect(0,0,W,H);
+    if(!battleActive && screen!==Screen.INGAME && screen!==Screen.READY){
+      ctx.fillStyle='#0f1517';ctx.fillRect(0,0,W,H);
       return;
     }
-    drawGrid();
-    drawFlashes();
-    drawOrbs();
-    // 双方怪同屏可见（无迷雾过滤）
+    drawGrid(); drawFlashes(); drawOrbs();
+    // 同图无迷雾：双方怪同屏可见（仅视口 culling）
     for(const e of enemies) drawEnemy(e);
-    drawTrail(trailFoe, foeFaction, foe.trailWidth);
-    drawTrail(trailMe, myFaction, me.trailWidth);
-    drawParticles();
+    drawTrail(); drawParticles();
     drawActor(foe, false);
-    drawActor(me, true);
-    if(me.alive && trailMe.length>18){
-      ctx.beginPath();
-      ctx.arc(sx(me.x), sy(me.y), me.closureRadius, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(243,223,179,.12)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    drawActor(player, true);
+    if(!downed && player && trail.length>18){
+      ctx.beginPath();ctx.arc(sx(player.x),sy(player.y),player.closureRadius,0,Math.PI*2);
+      ctx.strokeStyle='rgba(243,223,179,.12)';ctx.lineWidth=1;ctx.stroke();
     }
   }
 
-  function applyFactionUI(){
-    const mine = myFaction, opp = foeFaction;
-    ui.readyFaction.className = 'faction-badge ' + mine.id;
-    ui.readyFaction.innerHTML = `<span class="dot" style="background:${mine.color}"></span>你是${mine.name}`;
-    ui.factionDot.style.background = mine.color;
-    ui.youDot.style.background = mine.color;
-    ui.oppDot.style.background = opp.color;
-    ui.youLabel.textContent = `你 · ${mine.id==='red'?'红':'蓝'}`;
-    ui.oppLabel.textContent = `对手 · ${opp.id==='red'?'红':'蓝'}`;
-    el('scoreYou').className = 'score-side ' + mine.id;
-    el('scoreOpp').className = 'score-side ' + opp.id;
-  }
-
-  function startBattle(){
-    // mock：固定一边红一边蓝（匹配后随机可改为 Math.random）
-    myFaction = FACTION.red;
-    foeFaction = FACTION.blue;
+  function startBattle(seedVal){
+    upgradeSpeedMul=1;
+    rng = seedVal ? mulberry32(seedVal>>>0) : Math.random;
+    baseSpeed=220;
+    // 双方分列出生（同图）
+    player = makeActor(myTeam, world.w/2 - 160, world.h/2, playerId);
+    foe = makeActor(oppTeam, world.w/2 + 160, world.h/2, opponentId);
+    enemies=[];orbs=[];particles=[];flashes=[];trail=[{x:player.x,y:player.y,t:0}];
+    localKills=0;elapsed=0;spawnClock=0;difficulty=1;
+    paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;
+    snapshotSeq=-1; worldPaused=false; moveReportAccum=0; lastMoveSent={x:0,y:0};
+    camera.x=player.x;camera.y=player.y;
+    // TODO(client): 无权威 snapshot 时本地双实体 fallback
+    if(useFallback){
+      for(let i=0;i<14;i++) spawnEnemyNear(player, i<8);
+      for(let i=0;i<14;i++) spawnEnemyNear(foe, i<8);
+    }
     applyFactionUI();
-
-    me = makePlayer(myFaction, world.w/2 - 160, world.h/2);
-    foe = makePlayer(foeFaction, world.w/2 + 160, world.h/2);
-    enemies = []; orbs = []; particles = []; flashes = [];
-    trailMe = [{x:me.x,y:me.y,t:0}];
-    trailFoe = [{x:foe.x,y:foe.y,t:0}];
-    killsMe = 0; killsFoe = 0;
-    elapsed = 0; spawnClock = 0; difficulty = 1;
-    battleActive = true;
-    camera.x = me.x; camera.y = me.y;
-
-    for(let i=0;i<14;i++) spawnEnemyNear(me, i<8);
-    for(let i=0;i<14;i++) spawnEnemyNear(foe, i<8);
-
-    updateScoreUI();
     updateLocalUI();
+    updateScoreUI();
   }
 
-  // ---------- input ----------
-  addEventListener('keydown', e=>{
+  function stopBattle(){
+    battleActive=false;
+    paused=true;
+    clearInterval(reviveLocalTimer);
+    ui.levelup.style.display='none';
+    ui.revive.style.display='none';
+  }
+
+  function showResult(msg){
+    ui.levelup.style.display='none';
+    ui.revive.style.display='none';
+    clearInterval(reviveLocalTimer);
+    stopBattle();
+    setScreen(Screen.RESULT);
+    ui.result.style.display='flex';
+    const win = msg.winnerId && msg.winnerId===playerId;
+    ui.resultTitle.textContent = win ? '猎场封圈' : '墨尽人散';
+    ui.resultTitle.className = win ? 'win' : 'lose';
+    const yk=msg.you?.kills??scoreYou.kills;
+    const ok=msg.opponent?.kills??scoreOpp.kills;
+    const yt = (msg.you?.team||myTeam)==='red'?'红':'蓝';
+    const ot = (msg.opponent?.team||oppTeam)==='red'?'红':'蓝';
+    ui.resultScore.textContent = `你 ${yk} · 对手 ${ok}`;
+    ui.resultMeta.textContent = `用时 ${fmtTime(elapsed)} · 等级 ${player?.level||1} · ${yt} ${yk} · ${ot} ${ok}`;
+  }
+
+  function backToLobby(){
+    stopBattle();
+    ui.result.style.display='none';
+    setScreen(Screen.LOBBY);
+  }
+
+  // ---------- Input ----------
+  addEventListener('keydown',e=>{
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
     keys.add(e.code);
   });
-  addEventListener('keyup', e=> keys.delete(e.code));
+  addEventListener('keyup',e=>keys.delete(e.code));
 
-  const base = el('stickBase'), knob = el('stickKnob');
-  let stickId = null;
+  const base=el('stickBase'), knob=el('stickKnob');
+  let stickId=null;
   function setStick(ev){
-    const r=base.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
-    let dx=ev.clientX-cx, dy=ev.clientY-cy;
-    const m=Math.hypot(dx,dy), max=42;
-    if(m>max){ dx=dx/m*max; dy=dy/m*max; }
-    stick.x=dx/max; stick.y=dy/max;
-    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+    let dx=ev.clientX-cx,dy=ev.clientY-cy;const m=Math.hypot(dx,dy),max=42;
+    if(m>max){dx=dx/m*max;dy=dy/m*max}
+    stick.x=dx/max;stick.y=dy/max;knob.style.transform=`translate(${dx}px,${dy}px)`;
   }
-  base.addEventListener('pointerdown', e=>{ stickId=e.pointerId; base.setPointerCapture(stickId); setStick(e); });
-  base.addEventListener('pointermove', e=>{ if(e.pointerId===stickId) setStick(e); });
-  function releaseStick(e){
-    if(stickId===null || e.pointerId===stickId){
-      stickId=null; stick.x=stick.y=0; knob.style.transform='translate(0,0)';
-    }
-  }
-  base.addEventListener('pointerup', releaseStick);
-  base.addEventListener('pointercancel', releaseStick);
+  base.addEventListener('pointerdown',e=>{stickId=e.pointerId;base.setPointerCapture(stickId);setStick(e)});
+  base.addEventListener('pointermove',e=>{if(e.pointerId===stickId)setStick(e)});
+  function releaseStick(e){if(stickId===null||e.pointerId===stickId){stickId=null;stick.x=stick.y=0;knob.style.transform='translate(0,0)'}}
+  base.addEventListener('pointerup',releaseStick);base.addEventListener('pointercancel',releaseStick);
 
-  el('btnStart').onclick = ()=>{
-    setScreen('ready');
-    startBattle();
-    setTimeout(()=>{
-      if(screen==='ready'){
-        setScreen('ingame');
-        showMessage('同图开战 · 无迷雾');
+  // ---------- Buttons ----------
+  let connecting=false;
+  el('btnMatch').onclick = async ()=>{
+    if(connecting) return;
+    connecting=true;
+    el('btnMatch').disabled=true;
+    try{
+      if(!ws || ws.readyState!==1){
+        await connect();
       }
-    }, 1200);
+      setScreen(Screen.MATCHING);
+      matchLeft=Math.ceil((netConfig?.matchTimeoutMs||15000)/1000);
+      ui.matchRemain.textContent=`剩余 ${matchLeft}s`;
+      netSend({type:'match.join'});
+    }catch(err){
+      sysToast('无法连接服务器：'+((err&&err.message)||err));
+      setScreen(Screen.LOBBY);
+    }finally{
+      connecting=false;
+      el('btnMatch').disabled=false;
+    }
   };
 
-  let last = performance.now();
+  el('btnCancel').onclick = ()=>{
+    netSend({type:'match.cancel'});
+    stopMatchCountdown();
+    setScreen(Screen.LOBBY);
+  };
+
+  el('btnLobby').onclick = backToLobby;
+  el('adRevivePlaceholder').onclick = ()=>sysToast('广告占位（未接 SDK）');
+  el('adResultPlaceholder').onclick = ()=>sysToast('广告占位（未接 SDK）');
+
+  let last=performance.now();
   function frame(now){
-    const dt = Math.min(.034, (now-last)/1000 || 0);
-    last = now;
-    update(dt);
-    draw();
+    const dt=Math.min(.034,(now-last)/1000||0); last=now;
+    update(dt); draw();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

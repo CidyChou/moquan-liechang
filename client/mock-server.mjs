@@ -1,11 +1,11 @@
 /**
  * 墨圈猎场 · 同图对战 v2 最小 WS mock（协议对齐 WS协议-同图对战-v2.md；保留 v1 击杀/塞敌骨架）
- * 默认端口 8787；环境变量可覆盖数值。
+ * 默认端口 8788；环境变量可覆盖数值。
  */
 import { WebSocketServer } from 'ws';
 import { randomBytes } from 'node:crypto';
 
-const PORT = Number(process.env.PORT || 8787);
+const PORT = Number(process.env.PORT || 8788);
 const CFG = {
   // same-map v2 defaults (override via env); keep match/WS skeleton intact
   livesN: int('LIVES_N', 1),
@@ -188,6 +188,25 @@ function handle(player, msg) {
     return;
   }
 
+  if (t === 'input.move') {
+    const room = getRoom(player);
+    if (!room || room.state !== 'playing') return;
+    const rp = room.players.find((p) => p.playerId === player.playerId);
+    if (!rp || !rp.alive) return;
+    const dx = Number(msg.x);
+    const dy = Number(msg.y);
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    rp.inputDx = Math.max(-1, Math.min(1, dx));
+    rp.inputDy = Math.max(-1, Math.min(1, dy));
+    return;
+  }
+
+  if (t === 'input.loop') {
+    // mock：按 points 粗略杀己方怪；节点2最小闭环
+    applyLoop(player, msg);
+    return;
+  }
+
   if (t === 'combat.kill') {
     applyKill(player, msg);
     return;
@@ -235,8 +254,26 @@ function createRoom(pa, pb) {
       [pa.playerId]: { lastAt: 0, extra: 0, ids: [] },
       [pb.playerId]: { lastAt: 0, extra: 0, ids: [] },
     },
+    enemies: [],
+    seq: 0,
     tick: null,
   };
+  // 最小双方怪，方便节点2同图可见冒烟
+  for (const rp of room.players) {
+    for (let i = 0; i < 8; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rad = 120 + Math.random() * 280;
+      room.enemies.push({
+        id: id('e'),
+        ownerId: rp.playerId,
+        team: rp.team,
+        enemyType: i % 5 === 0 ? 'swift' : i % 7 === 0 ? 'watcher' : 'drifter',
+        x: rp.x + Math.cos(ang) * rad,
+        y: rp.y + Math.sin(ang) * rad,
+        hp: 1,
+      });
+    }
+  }
   rooms.set(roomId, room);
   pa.roomId = roomId;
   pb.roomId = roomId;
@@ -249,6 +286,7 @@ function createRoom(pa, pb) {
       roomId,
       you: you.playerId,
       opponent: { playerId: opp.playerId, playerName: opp.playerName, team: opp.team },
+      youTeam: you.team,
       seed: s,
       mode: CFG.mode,
     });
@@ -274,6 +312,9 @@ function createRoom(pa, pb) {
 }
 
 function makeRP(p, slot, team) {
+  // slot0 偏左、slot1 偏右，便于同图可见
+  const x = slot === 0 ? 1640 : 1960;
+  const y = 1800;
   return {
     playerId: p.playerId,
     playerName: p.playerName || '猎人',
@@ -285,6 +326,12 @@ function makeRP(p, slot, team) {
     reviveAt: null,
     speedMul: 1,
     ws: p.ws,
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    inputDx: 0,
+    inputDy: 0,
   };
 }
 
@@ -307,6 +354,7 @@ function scorePayload(room, viewerId) {
       alive: you.alive,
       reviveAt: you.reviveAt,
       speedMul: you.speedMul,
+      team: you.team,
     },
     opponent: {
       kills: opp.kills,
@@ -314,6 +362,7 @@ function scorePayload(room, viewerId) {
       alive: opp.alive,
       reviveAt: opp.reviveAt,
       speedMul: opp.speedMul,
+      team: opp.team,
     },
     lagBonusOn,
   };
@@ -457,9 +506,108 @@ function applyHit(player, msg) {
   }
 }
 
+function pointInPoly(x, y, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const xi = points[i][0], yi = points[i][1];
+    const xj = points[j][0], yj = points[j][1];
+    const hit = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi);
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+
+function applyLoop(player, msg) {
+  const room = getRoom(player);
+  if (!room || room.state !== 'playing') return;
+  const killer = room.players.find((p) => p.playerId === player.playerId);
+  const victim = room.players.find((p) => p.playerId !== player.playerId);
+  if (!killer || !killer.alive) return;
+  const points = msg.points;
+  if (!Array.isArray(points) || points.length < 3) return;
+  const toKill = room.enemies.filter((e) => e.ownerId === killer.playerId && pointInPoly(e.x, e.y, points));
+  for (const enemy of toKill) {
+    room.enemies = room.enemies.filter((e) => e.id !== enemy.id);
+    killer.kills += 1;
+    for (const p of room.players) {
+      send(p.ws, {
+        type: 'combat.kill_ack',
+        killerId: killer.playerId,
+        enemyId: enemy.id,
+        enemyType: enemy.enemyType,
+        kills: killer.kills,
+      });
+    }
+    updateLag(room);
+    if (killer.kills >= CFG.killTargetK) {
+      pushScore(room);
+      endRoom(room, 'kill_target', killer.playerId);
+      return;
+    }
+    if (victim) {
+      const inj = tryInject(room, killer.playerId, victim.playerId, enemy.enemyType);
+      if (inj.denied) {
+        send(killer.ws, { type: 'combat.inject_denied', enemyType: enemy.enemyType, reason: inj.reason });
+      } else if (inj.event) {
+        // 塞敌进共享世界
+        if (!inj.event.queued) {
+          const ang = Math.random() * Math.PI * 2;
+          const rad = 160 + Math.random() * 220;
+          room.enemies.push({
+            id: inj.event.injectId || id('e'),
+            ownerId: victim.playerId,
+            team: victim.team,
+            enemyType: enemy.enemyType,
+            x: victim.x + Math.cos(ang) * rad,
+            y: victim.y + Math.sin(ang) * rad,
+            hp: 1,
+          });
+        }
+        send(victim.ws, inj.event);
+      }
+    }
+  }
+  if (toKill.length) pushScore(room);
+}
+
+function buildSnapshot(room) {
+  room.seq = (room.seq || 0) + 1;
+  updateLag(room);
+  return {
+    type: 'world.snapshot',
+    seq: room.seq,
+    serverTime: Date.now(),
+    paused: false,
+    pauseReason: null,
+    players: room.players.map((p) => ({
+      playerId: p.playerId,
+      team: p.team,
+      x: Math.round(p.x * 100) / 100,
+      y: Math.round(p.y * 100) / 100,
+      vx: Math.round((p.vx || 0) * 100) / 100,
+      vy: Math.round((p.vy || 0) * 100) / 100,
+      alive: p.alive,
+      lives: p.lives,
+      kills: p.kills,
+      speedMul: p.speedMul,
+      reviveAt: p.reviveAt,
+    })),
+    enemies: (room.enemies || []).map((e) => ({
+      id: e.id,
+      ownerId: e.ownerId,
+      team: e.team,
+      enemyType: e.enemyType,
+      x: Math.round(e.x * 100) / 100,
+      y: Math.round(e.y * 100) / 100,
+      hp: e.hp,
+    })),
+  };
+}
+
 function tickRoom(room) {
   if (room.state !== 'playing') return;
   const now = Date.now();
+  const dt = 1 / CFG.tickHz;
 
   // revive
   for (const rp of room.players) {
@@ -477,6 +625,34 @@ function tickRoom(room) {
       pushScore(room);
     }
   }
+
+  // integrate input.move
+  for (const rp of room.players) {
+    if (!rp.alive) {
+      rp.vx = 0;
+      rp.vy = 0;
+      continue;
+    }
+    let dx = rp.inputDx || 0;
+    let dy = rp.inputDy || 0;
+    const len = Math.hypot(dx, dy);
+    if (len > 1e-6) {
+      dx /= len;
+      dy /= len;
+    } else {
+      dx = 0;
+      dy = 0;
+    }
+    const speed = 220 * (rp.speedMul || 1);
+    rp.vx = dx * speed;
+    rp.vy = dy * speed;
+    rp.x = Math.max(16, Math.min(3600 - 16, rp.x + rp.vx * dt));
+    rp.y = Math.max(16, Math.min(3600 - 16, rp.y + rp.vy * dt));
+  }
+
+  // broadcast shared world
+  const snap = buildSnapshot(room);
+  for (const p of room.players) send(p.ws, snap);
 
   // heartbeat disconnect
   for (const rp of room.players) {
@@ -507,8 +683,8 @@ function endRoom(room, reason, winnerId) {
       type: 'room.end',
       reason: r,
       winnerId,
-      you: { kills: you.kills, lives: you.lives },
-      opponent: { kills: opp.kills, lives: opp.lives },
+      you: { kills: you.kills, lives: you.lives, team: you.team },
+      opponent: { kills: opp.kills, lives: opp.lives, team: opp.team },
     });
     const pl = clients.get(rp.ws);
     if (pl) pl.roomId = null;
