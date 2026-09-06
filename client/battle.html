@@ -126,10 +126,18 @@
       padding:24px;box-shadow:0 28px 80px rgba(0,0,0,.42), 0 0 0 1px rgba(255,255,255,.03) inset
     }
     .modal h2{margin:0 0 6px;font-size:25px;letter-spacing:.04em}.modal p{margin:0 0 18px;color:var(--muted)}
+    .lu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+    .lu-head h2{margin:0}
+    .lu-timer{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:.04em;min-width:2.4em;text-align:right}
+    .lu-timer.danger{color:var(--danger)}
+    .lu-timer.big{font-size:56px;line-height:1;margin:12px 0 16px;text-align:center;min-width:0}
     .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .card{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:18px;padding:18px;text-align:left;cursor:pointer;min-height:152px;transition:transform .13s ease,border-color .13s ease,background .13s ease,box-shadow .13s ease}
+    .card{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;min-height:140px;transition:transform .13s ease,border-color .13s ease,background .13s ease,box-shadow .13s ease}
     .card:hover{transform:translateY(-3px);border-color:rgba(230,181,106,.5);background:rgba(230,181,106,.09);box-shadow:0 12px 28px rgba(0,0,0,.25)}
+    .card .label{font-size:clamp(22px,3.2vw,28px);font-weight:800;letter-spacing:.06em;line-height:1.15;color:var(--ink)}
+    .card .desc{margin:10px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
     .card .icon{font-size:28px}.card h3{margin:10px 0 6px;font-size:17px}.card p{margin:0;font-size:13px;line-height:1.45}
+    #levelupWaitModal{max-width:400px;text-align:center}
     .ad-slot{width:100%;height:120px;margin:0 0 16px;border:1.5px dashed rgba(240,223,182,.22);border-radius:14px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
     .ad-slot small{margin-top:4px;font-size:11px;opacity:.8}
     #reviveCount{font-size:72px;font-weight:800;color:var(--danger);line-height:1;margin:8px 0 16px}
@@ -213,10 +221,18 @@
   <div id="todoNote">TODO：无权威 world.snapshot 时用本地双实体 fallback；收到快照后切权威渲染</div>
 
   <div id="levelup">
-    <div class="modal">
-      <h2>选择一次强化</h2>
-      <p>每次升级只选一个</p>
+    <div class="modal" id="levelupPickModal">
+      <div class="lu-head">
+        <h2>选择一次强化</h2>
+        <div class="lu-timer" id="levelupTimer">8s</div>
+      </div>
+      <p id="levelupHint">超时将随机选择</p>
       <div id="upgradeCards" class="cards"></div>
+    </div>
+    <div class="modal" id="levelupWaitModal" style="display:none">
+      <h2>等待对方选择</h2>
+      <div class="lu-timer big" id="levelupWaitTimer">8s</div>
+      <p>对方升级中 · 全场暂停</p>
     </div>
   </div>
 
@@ -269,6 +285,9 @@
     hp: el('hpText'), xp: el('xpText'), hpFill: el('hpFill'), xpFill: el('xpFill'),
     message: el('message'), sysToast: el('sysToast'), todoNote: el('todoNote'),
     levelup: el('levelup'), cards: el('upgradeCards'),
+    levelupPick: el('levelupPickModal'), levelupWait: el('levelupWaitModal'),
+    levelupTimer: el('levelupTimer'), levelupWaitTimer: el('levelupWaitTimer'),
+    levelupHint: el('levelupHint'),
     revive: el('revive'), reviveCount: el('reviveCount'),
     result: el('result'), resultTitle: el('resultTitle'), resultScore: el('resultScore'), resultMeta: el('resultMeta'),
     matchRemain: el('matchRemain'), readyNames: el('readyNames'),
@@ -340,6 +359,10 @@
   let worldPaused=false;
   let moveReportAccum=0;
   let lastMoveSent={x:0,y:0};
+  let levelupSession=null; // {forPlayerId, options, deadline, timeoutMs}
+  let levelupTimerId=null;
+  let levelupLocalFallback=false;
+  let levelupTimeoutMs=8000;
 
   function connect(){
     return new Promise((resolve, reject)=>{
@@ -357,6 +380,7 @@
           netConfig=msg.config||{};
           killTargetK=netConfig.killTargetK||30;
           livesN=netConfig.livesN!=null?netConfig.livesN:1;
+          levelupTimeoutMs=netConfig.levelupTimeoutMs||8000;
           if(netConfig.mode) mode=netConfig.mode;
           if(netConfig.mapWidth) world.w = Number(netConfig.mapWidth) || world.w;
           if(netConfig.mapHeight) world.h = Number(netConfig.mapHeight) || world.h;
@@ -428,6 +452,7 @@
         roomCfg = msg.config || {};
         killTargetK = roomCfg.killTargetK || killTargetK;
         livesN = roomCfg.livesN!=null ? roomCfg.livesN : livesN;
+        levelupTimeoutMs = roomCfg.levelupTimeoutMs || levelupTimeoutMs || 8000;
         mode = msg.mode || mode || 'shared_map';
         myTeam = (msg.you && msg.you.team) || myTeam || 'red';
         oppTeam = (msg.opponent && msg.opponent.team) || (myTeam==='red'?'blue':'red');
@@ -454,9 +479,26 @@
         break;
       case 'world.pause':
         worldPaused=true;
+        if(msg.reason==='levelup'){
+          // offer 可能先到；若仅 pause，也进入等待/选卡态
+          if(!levelupSession){
+            levelupSession={
+              forPlayerId: msg.forPlayerId,
+              options: null,
+              deadline: msg.deadline || (Date.now()+(msg.timeoutMs||levelupTimeoutMs)),
+              timeoutMs: msg.timeoutMs||levelupTimeoutMs,
+            };
+          } else {
+            if(msg.deadline) levelupSession.deadline = msg.deadline;
+            if(msg.forPlayerId) levelupSession.forPlayerId = msg.forPlayerId;
+          }
+          if(!downed) showLevelupUI(levelupSession);
+          else levelUpQueued=true;
+        }
         break;
       case 'world.resume':
         worldPaused=false;
+        closeLevelupUI();
         break;
       case 'room.score':
         scoreYou = Object.assign(scoreYou, msg.you||{});
@@ -479,17 +521,40 @@
         if(msg.killerId===playerId){
           scoreYou.kills = msg.kills!=null?msg.kills:scoreYou.kills;
           updateScoreUI();
+          if(useAuthority){
+            const now=performance.now();
+            if(now-injectHintAt>1600){
+              injectHintAt=now;
+              setTimeout(()=>{ if(battleActive && screen===Screen.INGAME) showMessage('已塞给对手'); }, 420);
+            }
+          }
+        } else if(msg.killerId===opponentId || (opponentId && msg.killerId===opponentId)){
+          scoreOpp.kills = msg.kills!=null?msg.kills:scoreOpp.kills;
+          updateScoreUI();
         }
         break;
       case 'combat.inject':
-        if(msg.to===playerId){
+        {
           if(msg.queued) break;
-          if(useFallback && !useAuthority) spawnInjected(msg.enemyType, myTeam, playerId);
-          const now=performance.now();
-          if(now-injectBurst.t<800){ injectBurst.n++; }
-          else { injectBurst={n:1,t:now}; }
-          injectBurst.t=now;
-          showMessage(injectBurst.n>1 ? `对手塞来 ×${injectBurst.n}` : `对手塞来 · ${typeName(msg.enemyType)}`);
+          const toMe = msg.to===playerId || msg.ownerId===playerId;
+          const toOpp = msg.to===opponentId || msg.ownerId===opponentId;
+          if(useFallback && !useAuthority){
+            if(toMe) spawnInjected(msg.enemyType, myTeam, playerId);
+            else if(toOpp) spawnInjected(msg.enemyType, oppTeam, opponentId);
+          }
+          if(toMe){
+            const now=performance.now();
+            if(now-injectBurst.t<800){ injectBurst.n++; }
+            else { injectBurst={n:1,t:now}; }
+            injectBurst.t=now;
+            showMessage(injectBurst.n>1 ? `对手塞来 ×${injectBurst.n}` : `对手塞来 · ${typeName(msg.enemyType)}`);
+          } else if(toOpp){
+            const now=performance.now();
+            if(now-injectHintAt>1600){
+              injectHintAt=now;
+              showMessage('已塞给对手');
+            }
+          }
         }
         break;
       case 'combat.inject_denied':
@@ -501,10 +566,22 @@
           }
         }
         break;
+      case 'combat.hit':
+        if(msg.playerId===playerId){
+          scoreYou.lives = msg.lives!=null?msg.lives:scoreYou.lives;
+          if(scoreYou.lives<=0) scoreYou.alive=false;
+          updateScoreUI();
+        } else {
+          scoreOpp.lives = msg.lives!=null?msg.lives:scoreOpp.lives;
+          if(scoreOpp.lives<=0){ scoreOpp.alive=false; if(foe) foe.alive=false; }
+          updateScoreUI();
+        }
+        break;
       case 'combat.down':
         if(msg.playerId===playerId) enterRevive(msg.reviveAt);
         else {
           scoreOpp.alive=false;
+          scoreOpp.lives=0;
           if(foe) foe.alive=false;
           updateScoreUI();
         }
@@ -517,6 +594,32 @@
           scoreOpp.alive = true;
           if(foe){ foe.alive=true; foe.invuln=0.55; }
           updateScoreUI();
+        }
+        break;
+      case 'levelup.offer':
+        levelupLocalFallback=false;
+        levelupSession={
+          forPlayerId: msg.forPlayerId,
+          options: Array.isArray(msg.options)?msg.options:[],
+          deadline: msg.deadline || (Date.now()+(msg.timeoutMs||levelupTimeoutMs)),
+          timeoutMs: msg.timeoutMs||levelupTimeoutMs,
+        };
+        worldPaused=true;
+        if(downed){ levelUpQueued=true; }
+        else showLevelupUI(levelupSession);
+        break;
+      case 'levelup.resolved':
+        {
+          const mine = msg.forPlayerId===playerId;
+          const opt = (levelupSession && levelupSession.options||[]).find(o=>o.id===msg.optionId);
+          const label = (opt && (opt.label||opt.name)) || msg.optionId || '强化';
+          if(mine){
+            applyLevelupOptionId(msg.optionId, opt);
+            showMessage((msg.auto?'超时随机 · ':'') + label + ' 已强化');
+          } else {
+            showMessage('对方已选择 · ' + label);
+          }
+          closeLevelupUI();
         }
         break;
       case 'room.end':
