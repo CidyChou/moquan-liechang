@@ -1,0 +1,13 @@
+{
+  "name": "ink-hunt-battle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "mock": "node mock-server.mjs",
+    "static": "npx --yes serve -l 5173 ."
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

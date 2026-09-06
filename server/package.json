@@ -1,0 +1,18 @@
+{
+  "name": "moquan-battle-server",
+  "version": "0.1.0",
+  "description": "墨圈猎场 · 权威对战 WebSocket 服务",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "smoke": "node scripts/smoke-match.mjs",
+    "gateway": "node src/gateway.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
