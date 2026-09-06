@@ -157,6 +157,7 @@
       <h1>墨圈猎场</h1>
       <p class="sub">1v1 同图对战 · 先到击杀目标</p>
       <button class="btn-primary" id="btnMatch">开始匹配</button>
+      <button class="btn-ghost" id="btnLocal" style="margin-top:10px;width:100%">本地同图预览（模拟对手）</button>
       <p class="hint">同图可见对手 · 杀己方怪会塞怪给对面<br><span id="wsHint"></span></p>
     </div>
   </div>
@@ -357,6 +358,9 @@
           killTargetK=netConfig.killTargetK||30;
           livesN=netConfig.livesN!=null?netConfig.livesN:1;
           if(netConfig.mode) mode=netConfig.mode;
+          if(netConfig.mapWidth) world.w = Number(netConfig.mapWidth) || world.w;
+          if(netConfig.mapHeight) world.h = Number(netConfig.mapHeight) || world.h;
+          if(netConfig.baseSpeed) baseSpeed = Number(netConfig.baseSpeed) || baseSpeed;
           startPing();
           resolve(msg);
           return;
@@ -1209,9 +1213,10 @@
     upgradeSpeedMul=1;
     rng = seedVal ? mulberry32(seedVal>>>0) : Math.random;
     baseSpeed=220;
-    // 双方分列出生（同图）
-    player = makeActor(myTeam, world.w/2 - 160, world.h/2, playerId);
-    foe = makeActor(oppTeam, world.w/2 + 160, world.h/2, opponentId);
+    // 双方分列出生（同图）；权威服会用 snapshot 覆盖坐标
+    const gap = Math.min(160, world.w * 0.1);
+    player = makeActor(myTeam, world.w/2 - gap, world.h/2, playerId);
+    foe = makeActor(oppTeam, world.w/2 + gap, world.h/2, opponentId);
     enemies=[];orbs=[];particles=[];flashes=[];trail=[{x:player.x,y:player.y,t:0}];
     localKills=0;elapsed=0;spawnClock=0;difficulty=1;
     paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;
@@ -1280,6 +1285,33 @@
   base.addEventListener('pointerup',releaseStick);base.addEventListener('pointercancel',releaseStick);
 
   // ---------- Buttons ----------
+  function startLocalPreview(){
+    playerId = playerId || ("local_me_"+Math.floor(Math.random()*9999));
+    opponentId = "local_foe";
+    opponentName = "模拟对手";
+    myTeam = Math.random() < 0.5 ? "red" : "blue";
+    oppTeam = myTeam === "red" ? "blue" : "red";
+    livesN = 1; killTargetK = 30;
+    scoreYou = {kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:myTeam};
+    scoreOpp = {kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:oppTeam};
+    useAuthority = false; useFallback = true;
+    applyFactionUI();
+    ui.readyNames.textContent = "你（"+playerName+"） · "+opponentName;
+    setScreen(Screen.READY);
+    startBattle(Date.now() & 0xffffffff);
+    setTimeout(function(){
+      if(screen===Screen.READY){
+        setScreen(Screen.INGAME);
+        updateScoreUI();
+        showMessage("同图开战 · 本地预览");
+        sysToast("本地模拟对手 · 匹配可接权威 snapshot", 2400);
+      }
+    }, 1200);
+  }
+  var _btnLocal = el("btnLocal");
+  if(_btnLocal) _btnLocal.onclick = startLocalPreview;
+  if(params.get("local")==="1" || params.get("demo")==="1") setTimeout(startLocalPreview, 120);
+
   let connecting=false;
   el('btnMatch').onclick = async ()=>{
     if(connecting) return;
