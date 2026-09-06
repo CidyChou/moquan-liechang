@@ -1,5 +1,5 @@
 /**
- * 墨圈猎场 · 节点2 最小 WS mock（协议对齐 WS协议-对战.md）
+ * 墨圈猎场 · 同图对战 v2 最小 WS mock（协议对齐 WS协议-同图对战-v2.md；保留 v1 击杀/塞敌骨架）
  * 默认端口 8787；环境变量可覆盖数值。
  */
 import { WebSocketServer } from 'ws';
@@ -7,7 +7,8 @@ import { randomBytes } from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 8787);
 const CFG = {
-  livesN: int('LIVES_N', 3),
+  // same-map v2 defaults (override via env); keep match/WS skeleton intact
+  livesN: int('LIVES_N', 1),
   killTargetK: int('KILL_TARGET_K', 30),
   injectCooldownMs: int('INJECT_COOLDOWN_MS', 300),
   injectExtraCap: int('INJECT_EXTRA_CAP', 20),
@@ -15,9 +16,11 @@ const CFG = {
   lagDiff: int('LAG_DIFF', 8),
   lagSpeedBonus: float('LAG_SPEED_BONUS', 0.15),
   reviveMs: int('REVIVE_MS', 5000),
+  levelupTimeoutMs: int('LEVELUP_TIMEOUT_MS', 8000),
   heartbeatTimeoutMs: int('HEARTBEAT_TIMEOUT_MS', 30000),
   matchTimeoutMs: int('MATCH_TIMEOUT_MS', 15000),
   tickHz: int('TICK_HZ', 20),
+  mode: process.env.BATTLE_MODE || 'shared_map',
 };
 
 function int(n, d) {
@@ -50,8 +53,10 @@ function clientCfg() {
     lagDiff: CFG.lagDiff,
     lagSpeedBonus: CFG.lagSpeedBonus,
     reviveMs: CFG.reviveMs,
+    levelupTimeoutMs: CFG.levelupTimeoutMs,
     heartbeatTimeoutMs: CFG.heartbeatTimeoutMs,
     matchTimeoutMs: CFG.matchTimeoutMs,
+    mode: CFG.mode,
   };
 }
 
@@ -106,7 +111,7 @@ const rooms = new Map();
 const VALID = new Set(['drifter', 'swift', 'watcher']);
 
 const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' });
-console.log(`[mock] listening ws://127.0.0.1:${PORT}  K=${CFG.killTargetK} N=${CFG.livesN}`);
+console.log(`[mock] listening ws://127.0.0.1:${PORT}  mode=${CFG.mode} K=${CFG.killTargetK} N=${CFG.livesN}`);
 
 wss.on('connection', (ws) => {
   const player = {
@@ -212,14 +217,18 @@ function tryMatch() {
 function createRoom(pa, pb) {
   const roomId = id('r');
   const s = seed();
+  // Random red/blue assignment (same-map v2)
+  const aTeam = Math.random() < 0.5 ? 'red' : 'blue';
+  const bTeam = aTeam === 'red' ? 'blue' : 'red';
   /** @type {Room} */
   const room = {
     roomId,
     state: 'playing',
     seed: s,
+    mode: CFG.mode,
     players: [
-      makeRP(pa, 0),
-      makeRP(pb, 1),
+      makeRP(pa, 0, aTeam),
+      makeRP(pb, 1, bTeam),
     ],
     lagBonusOn: null,
     inject: {
@@ -239,15 +248,23 @@ function createRoom(pa, pb) {
       type: 'match.found',
       roomId,
       you: you.playerId,
-      opponent: { playerId: opp.playerId, playerName: opp.playerName },
+      opponent: { playerId: opp.playerId, playerName: opp.playerName, team: opp.team },
       seed: s,
+      mode: CFG.mode,
     });
     send(rp.ws, {
       type: 'room.start',
       roomId,
-      you: { playerId: you.playerId, slot: you.slot, lives: you.lives, kills: 0 },
-      opponent: { playerId: opp.playerId, slot: opp.slot, lives: opp.lives, kills: 0 },
-      config: { livesN: CFG.livesN, killTargetK: CFG.killTargetK },
+      mode: CFG.mode,
+      you: { playerId: you.playerId, slot: you.slot, team: you.team, lives: you.lives, kills: 0 },
+      opponent: { playerId: opp.playerId, slot: opp.slot, team: opp.team, lives: opp.lives, kills: 0 },
+      config: {
+        livesN: CFG.livesN,
+        killTargetK: CFG.killTargetK,
+        levelupTimeoutMs: CFG.levelupTimeoutMs,
+        reviveMs: CFG.reviveMs,
+      },
+      seed: s,
       serverTime: Date.now(),
     });
   }
@@ -256,11 +273,12 @@ function createRoom(pa, pb) {
   room.tick = setInterval(() => tickRoom(room), interval);
 }
 
-function makeRP(p, slot) {
+function makeRP(p, slot, team) {
   return {
     playerId: p.playerId,
     playerName: p.playerName || '猎人',
     slot,
+    team: team || 'red',
     lives: CFG.livesN,
     kills: 0,
     alive: true,
@@ -396,14 +414,18 @@ function tryInject(room, fromId, toId, enemyType) {
   st.lastAt = now;
   st.extra += 1;
   st.ids.push(injectId);
+  const toPlayer = room.players.find((p) => p.playerId === toId);
   return {
     denied: false,
     event: {
       type: 'combat.inject',
       enemyType,
       to: toId,
+      ownerId: toId,
+      team: toPlayer ? toPlayer.team : null,
       injectId,
       queued: false,
+      // TODO(backend): also push x/y spawn into shared world.snapshot
     },
   };
 }

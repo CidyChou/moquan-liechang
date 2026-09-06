@@ -1,23 +1,18 @@
 /**
- * WebSocket 消息路由（权威入口的连接处理）
+ * WebSocket 消息路由 · 同图 v2
  */
 import { clientConfig } from './config.js';
 import { randomId } from './ids.js';
-import { applyKill, applyHit } from './combat.js';
+import { applyLoop, applyHit, startLevelup, resolveLevelup } from './combat.js';
 import {
   joinQueue,
   cancelQueue,
   isInQueue,
   leaveOnDisconnect,
 } from './matchmaking.js';
-import {
-  getRoomForPlayer,
-  unregisterRoom,
-} from './room.js';
+import { getRoomForPlayer, unregisterRoom } from './room.js';
 
-/** @typedef {{ playerId: string, playerName: string, ws: import('ws').WebSocket, roomId: string|null }} Client */
-
-/** @type {Map<import('ws').WebSocket, Client>} */
+/** @type {Map<import('ws').WebSocket, any>} */
 const clients = new Map();
 
 function send(ws, msg) {
@@ -78,7 +73,18 @@ function handleMessage(client, msg) {
       return;
     }
 
-    case 'combat.kill': {
+    case 'input.move': {
+      const room = getRoomForPlayer(playerId);
+      if (!room) {
+        error(ws, 'not_in_room', '不在房间中');
+        return;
+      }
+      room.touchHeartbeat(playerId);
+      room.applyMove(playerId, msg);
+      return;
+    }
+
+    case 'input.loop': {
       const room = getRoomForPlayer(playerId);
       if (!room) {
         error(ws, 'not_in_room', '不在房间中');
@@ -89,9 +95,9 @@ function handleMessage(client, msg) {
         return;
       }
       room.touchHeartbeat(playerId);
-      const result = applyKill(room, playerId, msg);
+      const result = applyLoop(room, playerId, msg);
       if (!result.ok) {
-        error(ws, result.error || 'bad_payload', result.error || '击杀无效');
+        error(ws, result.error || 'bad_payload', result.error || '圈杀无效');
         return;
       }
       dispatchEvents(room, result.events);
@@ -118,8 +124,36 @@ function handleMessage(client, msg) {
       return;
     }
 
-    case 'meta.levelup': {
-      send(ws, { type: 'meta.levelup', level: msg.level, choiceId: msg.choiceId });
+    case 'levelup.request': {
+      const room = getRoomForPlayer(playerId);
+      if (!room) {
+        error(ws, 'not_in_room', '不在房间中');
+        return;
+      }
+      room.touchHeartbeat(playerId);
+      const result = startLevelup(room, playerId);
+      if (!result.ok) {
+        error(ws, result.error || 'busy', '无法发起升级');
+        return;
+      }
+      dispatchEvents(room, result.events);
+      return;
+    }
+
+    case 'levelup.pick': {
+      const room = getRoomForPlayer(playerId);
+      if (!room) {
+        error(ws, 'not_in_room', '不在房间中');
+        return;
+      }
+      room.touchHeartbeat(playerId);
+      const optionId = typeof msg.optionId === 'string' ? msg.optionId : '';
+      const result = resolveLevelup(room, playerId, optionId, false);
+      if (!result.ok) {
+        error(ws, result.error || 'bad_payload', '升级选择无效');
+        return;
+      }
+      dispatchEvents(room, result.events);
       return;
     }
 
@@ -140,9 +174,7 @@ function onDisconnect(client) {
   clients.delete(ws);
 }
 
-/** 挂到一条新连接上 */
 export function attachConnection(ws) {
-  /** @type {Client|null} */
   let client = null;
   const helloTimer = setTimeout(() => {
     if (!client) {
