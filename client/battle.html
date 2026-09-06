@@ -332,8 +332,9 @@
     toastTimer=setTimeout(()=>{ui.sysToast.style.opacity='0'}, ms);
   }
   function hearts(n, max){
+    const m=Math.max(1, max|0);
     let s='';
-    for(let i=0;i<max;i++) s += i<n ? '♥' : '<span class="empty">♡</span>';
+    for(let i=0;i<m;i++) s += i<n ? '♥' : '<span class="empty">♡</span>';
     return s;
   }
 
@@ -521,6 +522,11 @@
         if(msg.killerId===playerId){
           scoreYou.kills = msg.kills!=null?msg.kills:scoreYou.kills;
           updateScoreUI();
+          // 权威模式无本地 orb：按击杀给 XP，触发 levelup.request
+          if(useAuthority && player){
+            const xpGain = msg.enemyType==='watcher'?3:msg.enemyType==='swift'?2:1;
+            gainXp(xpGain);
+          }
           if(useAuthority){
             const now=performance.now();
             if(now-injectHintAt>1600){
@@ -528,7 +534,7 @@
               setTimeout(()=>{ if(battleActive && screen===Screen.INGAME) showMessage('已塞给对手'); }, 420);
             }
           }
-        } else if(msg.killerId===opponentId || (opponentId && msg.killerId===opponentId)){
+        } else if(msg.killerId===opponentId){
           scoreOpp.kills = msg.kills!=null?msg.kills:scoreOpp.kills;
           updateScoreUI();
         }
@@ -1010,8 +1016,8 @@
       ui.cards.innerHTML='';
       let options = Array.isArray(session.options) ? session.options.slice() : null;
       if(!options || !options.length){
-        options = [...UPGRADE_POOL].filter(u=>!['spd','dmg'].includes(u.id) || u.id==='hp')
-          .filter((u,i,arr)=>arr.findIndex(x=>x.id===u.id)===i)
+        const demoIds=new Set(['step','close','trail','hp','suck','thick','compose','mend']);
+        options = UPGRADE_POOL.filter(u=>demoIds.has(u.id))
           .sort(()=>Math.random()-.5).slice(0,3)
           .map(u=>({id:u.id,label:u.label,desc:u.desc}));
         session.options = options;
@@ -1153,10 +1159,16 @@
   let reviveLocalTimer=null;
   function enterRevive(reviveAt){
     downed=true;
+    deathPending=false;
     if(player) player.alive=false;
-    if(ui.levelup.style.display==='flex' || paused) levelUpQueued=true;
+    scoreYou.alive=false;
+    scoreYou.lives=0;
+    updateScoreUI();
+    if(ui.levelup.style.display==='flex' || paused || levelupSession) levelUpQueued=true;
+    // 倒地不解除世界暂停语义由服务端管；本方 UI 优先复活层
     paused=false;
-    ui.levelup.style.display='none';
+    if(ui.levelup) ui.levelup.style.display='none';
+    clearLevelupTimer();
     ui.revive.style.display='flex';
     let at=Number(reviveAt);
     if(!Number.isFinite(at) || at<=0){
