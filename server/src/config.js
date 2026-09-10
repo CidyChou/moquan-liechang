@@ -39,9 +39,9 @@ export const config = {
   /** 玩家基础移速（单位/秒） */
   baseSpeed: floatEnv('BASE_SPEED', 180),
   /** 本底刷怪间隔 ms */
-  spawnIntervalMs: intEnv('SPAWN_INTERVAL_MS', 2000),
+  spawnIntervalMs: intEnv('SPAWN_INTERVAL_MS', 450),
   /** 每位主人本底怪上限 */
-  spawnCapPerOwner: intEnv('SPAWN_CAP_PER_OWNER', 8),
+  spawnCapPerOwner: intEnv('SPAWN_CAP_PER_OWNER', 45),
   /** 刷怪距主人半径 */
   spawnRadius: floatEnv('SPAWN_RADIUS', 120),
   mapWidth: floatEnv('MAP_WIDTH', 1600),

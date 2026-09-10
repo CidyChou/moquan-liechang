@@ -84,7 +84,7 @@ export class Room {
 
     // 开局各刷几只本底怪，保证首帧 snapshot 含双方 enemies
     for (const p of this.players) {
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 12; i++) {
         this.spawnAmbientFor(p);
       }
     }
@@ -211,7 +211,11 @@ export class Room {
       if (!p.alive) continue;
       if (now - p.lastSpawnAt < config.spawnIntervalMs) continue;
       p.lastSpawnAt = now;
+      // 对齐旧版密度：间隔到了可连刷多只，直到接近上限
       this.spawnAmbientFor(p);
+      this.spawnAmbientFor(p);
+      const ambient = this.enemies.filter((e) => e.ownerId === p.playerId && !e.injected).length;
+      if (ambient < config.spawnCapPerOwner * 0.45) this.spawnAmbientFor(p);
     }
   }
 
