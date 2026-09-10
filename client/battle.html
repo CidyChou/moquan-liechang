@@ -270,8 +270,8 @@
   };
 
   const params = new URLSearchParams(location.search);
-  // 默认本机真服/mock 8788；?ws= 可覆盖
-  const WS_URL = params.get('ws') || 'ws://127.0.0.1:8788';
+  // 公网同域 wss；本机默认 8788；?ws= 可覆盖
+  const WS_URL = params.get('ws') || (location.hostname === '127.0.0.1' || location.hostname === 'localhost' ? 'ws://127.0.0.1:8788' : ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host));
   const playerName = params.get('name') || ('猎人' + Math.floor(Math.random()*900+100));
 
   const el = (id) => document.getElementById(id);

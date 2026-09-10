@@ -23,6 +23,7 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.wasm': 'application/wasm',
+  '.webp': 'image/webp',
 };
 
 function safeJoin(root, reqPath) {
