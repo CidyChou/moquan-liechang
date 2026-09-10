@@ -1,25 +1,12 @@
 /**
- * 简单 FIFO 匹配队列，15s 超时
+ * FIFO 1v1 匹配队列
  */
 import { config } from './config.js';
-import { Room, registerRoom, unregisterRoom, playerRoom } from './room.js';
+import { Room, registerRoom, unregisterRoom } from './room.js';
 
-/**
- * @typedef {{
- *   playerId: string,
- *   playerName: string,
- *   send: (msg: object) => void,
- *   joinedAt: number,
- *   timeoutTimer: NodeJS.Timeout|null,
- * }} QueueEntry
- */
-
-/** @type {QueueEntry[]} */
+/** @type {any[]} */
 const queue = [];
 
-/**
- * @param {{ playerId: string, playerName: string, send: Function, onMatched: Function, onTimeout: Function, isBusy: () => boolean }} opts
- */
 export function joinQueue(opts) {
   const { playerId, playerName, send, onMatched, onTimeout, isBusy } = opts;
 
@@ -28,7 +15,6 @@ export function joinQueue(opts) {
     return false;
   }
 
-  // 已在队列
   if (queue.some((e) => e.playerId === playerId)) {
     send({ type: 'error', code: 'already_matched', message: '已在匹配队列' });
     return false;
@@ -88,14 +74,14 @@ function tryMatch() {
     ]);
     registerRoom(room);
 
-    // match.found + room.start
     room.dispatch(room.buildMatchFoundEvents());
     room.dispatch(room.buildStartEvents());
+    // 立刻推一帧世界，方便客户端/smoke 不等第一个 tick
+    room.dispatch([room.buildSnapshot()]);
 
     room.startTick((events) => {
       room.dispatch(events);
       if (room.state === 'ended') {
-        // 延迟清理，让消息先发出
         setTimeout(() => unregisterRoom(room), 100);
       }
     });

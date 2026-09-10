@@ -3,20 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>墨圈猎场 · 1v1 对战</title>
+  <title>墨圈猎场 · 同图对战</title>
   <style>
     :root{
-      --bg:#0b1012;
+      --bg:#0f1517;
       --panel:rgba(14,20,22,.72);
       --panel-solid:rgba(16,22,24,.92);
       --text:#f4efe4;
       --muted:#9aa8a5;
-      --accent:#e6b56a;
+      --accent:#f2a65a;
       --ink:#f0dfb6;
       --danger:#e6655b;
       --xp:#8fcf82;
       --line:rgba(240,223,182,.14);
       --glow:rgba(230,181,106,.22);
+      --red:#e6655b;
+      --blue:#5b9fd4;
     }
     *{box-sizing:border-box}
     html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);
@@ -38,12 +40,11 @@
     .screen.active{display:flex}
     #lobby.screen{background:transparent}
     .lobby-wrap{width:min(420px,94vw);text-align:center;position:relative;z-index:1}
-    .lobby-seal{width:96px;height:96px;margin:0 auto 14px;display:block;object-fit:contain;aspect-ratio:1/1;filter:drop-shadow(0 10px 28px rgba(0,0,0,.45));opacity:.95}
     .lobby-wrap h1{
       margin:0 0 8px;font-size:clamp(30px,5.2vw,36px);font-weight:800;letter-spacing:.18em;
       background:linear-gradient(180deg,#fff6df 0%,var(--ink) 55%,var(--accent) 100%);
       -webkit-background-clip:text;background-clip:text;color:transparent;
-      text-shadow:none;filter:drop-shadow(0 2px 10px rgba(0,0,0,.35));
+      filter:drop-shadow(0 2px 10px rgba(0,0,0,.35));
     }
     .lobby-wrap .sub{margin:0 0 26px;color:var(--muted);font-size:14px;letter-spacing:.08em}
     .lobby-wrap .hint{margin:16px 0 0;color:var(--muted);font-size:12px;line-height:1.55;opacity:.9}
@@ -73,6 +74,10 @@
     #readyFlash{background:rgba(5,9,10,.72);backdrop-filter:blur(8px);z-index:9}
     #readyFlash .big{font-size:clamp(28px,6vw,40px);font-weight:800;color:var(--accent);letter-spacing:.18em;margin:0 0 12px;text-shadow:0 0 30px var(--glow)}
     #readyFlash .names{color:var(--muted);font-size:14px;letter-spacing:.06em}
+    .faction-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-weight:700;letter-spacing:.06em;margin:10px 0 4px}
+    .faction-badge .dot{width:12px;height:12px;border-radius:50%}
+    .faction-badge.red{color:var(--red);border-color:rgba(230,101,91,.45);background:rgba(230,101,91,.08)}
+    .faction-badge.blue{color:var(--blue);border-color:rgba(91,159,212,.45);background:rgba(91,159,212,.08)}
 
     #hud{position:fixed;left:18px;top:16px;display:none;flex-direction:column;gap:10px;z-index:4;pointer-events:none}
     #hud.show{display:flex}
@@ -86,25 +91,31 @@
     .bar>i{display:block;height:100%;width:50%;border-radius:inherit;transition:width .15s ease}
     #hpFill{background:linear-gradient(90deg,#e6655b,#f3a56f)}
     #xpFill{background:linear-gradient(90deg,#76bf77,#c7d87c)}
+    .team-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
 
     #scoreBar{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:4;width:min(420px,92vw);display:none;pointer-events:none}
     #scoreBar.show{display:block}
     .score-card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:14px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
     .score-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .score-side{font-size:12px}
-    .score-side .label{color:var(--muted);margin-bottom:2px;letter-spacing:.06em}
+    .score-side .label{color:var(--muted);margin-bottom:2px;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+    .score-side .label .dot{width:8px;height:8px;border-radius:50%}
     .score-side .nums{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;font-size:14px}
-    .score-side.lead .nums{color:var(--accent)}
+    .score-side.red .nums{color:var(--red)}
+    .score-side.blue .nums{color:var(--blue)}
     .hearts{letter-spacing:1px;color:var(--danger);font-size:13px}
     .hearts .empty{opacity:.28}
     .prog{margin-top:5px;height:7px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-    .prog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#aab6b4,#f2a65a);border-radius:inherit;transition:width .2s ease}
-    .score-side.lead .prog>i{background:linear-gradient(90deg,#f2a65a,#f1d69f)}
+    .prog>i{display:block;height:100%;width:0;border-radius:inherit;transition:width .2s ease}
+    .score-side.red .prog>i{background:linear-gradient(90deg,#c4544c,#e6655b)}
+    .score-side.blue .prog>i{background:linear-gradient(90deg,#4a86b5,#5b9fd4)}
     #lagTip{display:none;margin-top:6px;text-align:center;font-size:11px;color:var(--accent)}
     #lagTip.on{display:block}
 
     #message{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:5;font-size:20px;font-weight:800;letter-spacing:.08em;text-shadow:0 3px 12px rgba(0,0,0,.35);opacity:0;transition:opacity .18s ease;pointer-events:none;white-space:nowrap}
     #sysToast{position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:13;background:var(--panel-solid);border:1px solid var(--line);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center;backdrop-filter:blur(12px)}
+    #todoNote{position:fixed;right:14px;top:70px;z-index:4;display:none;max-width:220px;pointer-events:none;font-size:10px;color:var(--muted);background:rgba(14,20,22,.55);border:1px dashed rgba(240,223,182,.18);border-radius:10px;padding:8px 10px;line-height:1.45}
+    #todoNote.show{display:block}
 
     #levelup,#revive,#result{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(5,9,10,.62);backdrop-filter:blur(8px);padding:20px}
     #revive{z-index:11;background:rgba(5,9,10,.74)}
@@ -115,10 +126,18 @@
       padding:24px;box-shadow:0 28px 80px rgba(0,0,0,.42), 0 0 0 1px rgba(255,255,255,.03) inset
     }
     .modal h2{margin:0 0 6px;font-size:25px;letter-spacing:.04em}.modal p{margin:0 0 18px;color:var(--muted)}
+    .lu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+    .lu-head h2{margin:0}
+    .lu-timer{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:.04em;min-width:2.4em;text-align:right}
+    .lu-timer.danger{color:var(--danger)}
+    .lu-timer.big{font-size:56px;line-height:1;margin:12px 0 16px;text-align:center;min-width:0}
     .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .card{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:18px;padding:18px;text-align:left;cursor:pointer;min-height:152px;transition:transform .13s ease,border-color .13s ease,background .13s ease,box-shadow .13s ease}
+    .card{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;min-height:140px;transition:transform .13s ease,border-color .13s ease,background .13s ease,box-shadow .13s ease}
     .card:hover{transform:translateY(-3px);border-color:rgba(230,181,106,.5);background:rgba(230,181,106,.09);box-shadow:0 12px 28px rgba(0,0,0,.25)}
+    .card .label{font-size:clamp(22px,3.2vw,28px);font-weight:800;letter-spacing:.06em;line-height:1.15;color:var(--ink)}
+    .card .desc{margin:10px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
     .card .icon{font-size:28px}.card h3{margin:10px 0 6px;font-size:17px}.card p{margin:0;font-size:13px;line-height:1.45}
+    #levelupWaitModal{max-width:400px;text-align:center}
     .ad-slot{width:100%;height:120px;margin:0 0 16px;border:1.5px dashed rgba(240,223,182,.22);border-radius:14px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
     .ad-slot small{margin-top:4px;font-size:11px;opacity:.8}
     #reviveCount{font-size:72px;font-weight:800;color:var(--danger);line-height:1;margin:8px 0 16px}
@@ -133,7 +152,7 @@
       #mobile.show{display:block}
       #reviveCount{font-size:64px}
       .ad-slot{height:120px}
-      .lobby-seal{width:84px;height:84px;object-fit:contain}
+      #todoNote{display:none !important}
     }
     @media (min-width:761px){ .ad-slot{height:160px} }
   </style>
@@ -144,9 +163,10 @@
   <div id="lobby" class="screen active">
     <div class="lobby-wrap">
       <h1>墨圈猎场</h1>
-      <p class="sub">1v1 对战 · 先到击杀目标</p>
+      <p class="sub">1v1 同图对战 · 先到击杀目标</p>
       <button class="btn-primary" id="btnMatch">开始匹配</button>
-      <p class="hint">各打各的图 · 杀敌会塞怪给对手<br><span id="wsHint"></span></p>
+      <button class="btn-ghost" id="btnLocal" style="margin-top:10px;width:100%">本地同图预览（模拟对手）</button>
+      <p class="hint">同图可见对手 · 杀己方怪会塞怪给对面<br><span id="wsHint"></span></p>
     </div>
   </div>
 
@@ -160,15 +180,16 @@
   </div>
 
   <div id="readyFlash" class="screen">
-    <div>
+    <div class="card-panel">
       <p class="big">对战开始！</p>
+      <div id="readyFaction" class="faction-badge red"><span class="dot"></span><span id="readyFactionText">你是红方</span></div>
       <p class="names" id="readyNames">你 · 对手</p>
     </div>
   </div>
 
   <div id="hud">
     <div class="row">
-      <div class="pill stat">等级 <strong id="levelText">1</strong></div>
+      <div class="pill stat"><span class="team-dot" id="factionDot"></span>等级 <strong id="levelText">1</strong></div>
       <div class="pill stat">时间 <strong id="timeText">00:00</strong></div>
     </div>
     <div class="pill">
@@ -181,13 +202,13 @@
     <div class="score-card">
       <div class="score-grid">
         <div class="score-side" id="scoreYou">
-          <div class="label">你</div>
-          <div class="nums"><span class="hearts" id="heartsYou">●●●</span><span id="killYou">0 / 30</span></div>
+          <div class="label"><span class="dot" id="youDot"></span><span id="youLabel">你</span></div>
+          <div class="nums"><span class="hearts" id="heartsYou">♥</span><span id="killYou">0 / 30</span></div>
           <div class="prog"><i id="progYou"></i></div>
         </div>
         <div class="score-side" id="scoreOpp">
-          <div class="label">对手</div>
-          <div class="nums"><span id="killOpp">0 / 30</span><span class="hearts" id="heartsOpp">●●●</span></div>
+          <div class="label" style="justify-content:flex-end"><span id="oppLabel">对手</span><span class="dot" id="oppDot"></span></div>
+          <div class="nums"><span id="killOpp">0 / 30</span><span class="hearts" id="heartsOpp">♥</span></div>
           <div class="prog"><i id="progOpp"></i></div>
         </div>
       </div>
@@ -197,12 +218,21 @@
 
   <div id="message"></div>
   <div id="sysToast"></div>
+  <div id="todoNote">TODO：无权威 world.snapshot 时用本地双实体 fallback；收到快照后切权威渲染</div>
 
   <div id="levelup">
-    <div class="modal">
-      <h2>选择一次强化</h2>
-      <p>每次升级只选一个</p>
+    <div class="modal" id="levelupPickModal">
+      <div class="lu-head">
+        <h2>选择一次强化</h2>
+        <div class="lu-timer" id="levelupTimer">8s</div>
+      </div>
+      <p id="levelupHint">超时将随机选择</p>
       <div id="upgradeCards" class="cards"></div>
+    </div>
+    <div class="modal" id="levelupWaitModal" style="display:none">
+      <h2>等待对方选择</h2>
+      <div class="lu-timer big" id="levelupWaitTimer">8s</div>
+      <p>对方升级中 · 全场暂停</p>
     </div>
   </div>
 
@@ -234,8 +264,14 @@
 (() => {
   'use strict';
 
+  const FACTION = {
+    red:  { id:'red',  name:'红方', color:'#e6655b', fill:'#e6655b', soft:'rgba(230,101,91,.22)', trail:'rgba(230,101,91,.38)' },
+    blue: { id:'blue', name:'蓝方', color:'#5b9fd4', fill:'#5b9fd4', soft:'rgba(91,159,212,.22)', trail:'rgba(91,159,212,.38)' },
+  };
+
   const params = new URLSearchParams(location.search);
-  const WS_URL = params.get('ws') || ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  // 公网同域 wss；本机默认 8788；?ws= 可覆盖
+  const WS_URL = params.get('ws') || (location.hostname === '127.0.0.1' || location.hostname === 'localhost' ? 'ws://127.0.0.1:8788' : ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host));
   const playerName = params.get('name') || ('猎人' + Math.floor(Math.random()*900+100));
 
   const el = (id) => document.getElementById(id);
@@ -247,20 +283,25 @@
     hud: el('hud'), scoreBar: el('scoreBar'), mobile: el('mobile'),
     level: el('levelText'), time: el('timeText'),
     hp: el('hpText'), xp: el('xpText'), hpFill: el('hpFill'), xpFill: el('xpFill'),
-    message: el('message'), sysToast: el('sysToast'),
+    message: el('message'), sysToast: el('sysToast'), todoNote: el('todoNote'),
     levelup: el('levelup'), cards: el('upgradeCards'),
+    levelupPick: el('levelupPickModal'), levelupWait: el('levelupWaitModal'),
+    levelupTimer: el('levelupTimer'), levelupWaitTimer: el('levelupWaitTimer'),
+    levelupHint: el('levelupHint'),
     revive: el('revive'), reviveCount: el('reviveCount'),
     result: el('result'), resultTitle: el('resultTitle'), resultScore: el('resultScore'), resultMeta: el('resultMeta'),
     matchRemain: el('matchRemain'), readyNames: el('readyNames'),
+    readyFaction: el('readyFaction'), readyFactionText: el('readyFactionText'),
     killYou: el('killYou'), killOpp: el('killOpp'),
     heartsYou: el('heartsYou'), heartsOpp: el('heartsOpp'),
     progYou: el('progYou'), progOpp: el('progOpp'),
     scoreYou: el('scoreYou'), scoreOpp: el('scoreOpp'), lagTip: el('lagTip'),
+    youLabel: el('youLabel'), oppLabel: el('oppLabel'),
+    youDot: el('youDot'), oppDot: el('oppDot'), factionDot: el('factionDot'),
     wsHint: el('wsHint'),
   };
   ui.wsHint.textContent = 'WS: ' + WS_URL;
 
-  // ---------- UI screens ----------
   const Screen = { LOBBY:'lobby', MATCHING:'matching', READY:'ready', INGAME:'ingame', RESULT:'result' };
   let screen = Screen.LOBBY;
 
@@ -272,6 +313,7 @@
     const inGame = s===Screen.INGAME;
     ui.hud.classList.toggle('show', inGame);
     ui.scoreBar.classList.toggle('show', inGame);
+    ui.todoNote.classList.toggle('show', inGame && useFallback);
     ui.mobile.classList.toggle('show', inGame && innerWidth<=760);
     if(s!==Screen.INGAME){
       ui.levelup.style.display='none';
@@ -289,36 +331,48 @@
     clearTimeout(toastTimer);
     toastTimer=setTimeout(()=>{ui.sysToast.style.opacity='0'}, ms);
   }
-
   function hearts(n, max){
+    const m=Math.max(1, max|0);
     let s='';
-    for(let i=0;i<max;i++) s += i<n ? '●' : '<span class="empty">○</span>';
+    for(let i=0;i<m;i++) s += i<n ? '♥' : '<span class="empty">♡</span>';
     return s;
   }
 
   // ---------- Net ----------
   let ws=null, playerId=null, netConfig=null, roomCfg=null;
-  let scoreYou={kills:0,lives:3,alive:true,reviveAt:null,speedMul:1};
-  let scoreOpp={kills:0,lives:3,alive:true,reviveAt:null,speedMul:1};
+  let myTeam='red', oppTeam='blue';
+  let mode='shared_map';
+  let scoreYou={kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:'red'};
+  let scoreOpp={kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:'blue'};
   let lastLagBonusOn=null;
   let injectDeniedAt=0;
-  let killTargetK=30, livesN=3;
+  let killTargetK=30, livesN=1;
   let matchTimer=null, matchLeft=15, pingTimer=null;
-  let opponentName='对手';
+  let opponentName='对手', opponentId=null;
   let injectBurst={n:0,t:0};
   let injectHintAt=0;
   let seq=0;
   let pendingLevelUp=false;
+  /** 收到过 world.snapshot 则走权威；否则本地 fallback */
+  let useAuthority=false;
+  let useFallback=true;
+  let snapshotSeq=-1;
+  let worldPaused=false;
+  let moveReportAccum=0;
+  let lastMoveSent={x:0,y:0};
+  let levelupSession=null; // {forPlayerId, options, deadline, timeoutMs}
+  let levelupTimerId=null;
+  let levelupLocalFallback=false;
+  let levelupTimeoutMs=8000;
 
   function connect(){
     return new Promise((resolve, reject)=>{
-      try{
-        ws = new WebSocket(WS_URL);
-      }catch(e){ reject(e); return; }
+      try{ ws = new WebSocket(WS_URL); }
+      catch(e){ reject(e); return; }
       const to=setTimeout(()=>{reject(new Error('连接超时')); try{ws.close()}catch{}}, 5000);
       ws.onopen=()=>{
         clearTimeout(to);
-        ws.send(JSON.stringify({type:'hello', playerName, clientVersion:'0.1'}));
+        ws.send(JSON.stringify({type:'hello', playerName, clientVersion:'0.2-same-map'}));
       };
       ws.onmessage=(ev)=>{
         let msg; try{msg=JSON.parse(ev.data)}catch{return}
@@ -326,7 +380,12 @@
           playerId=msg.playerId;
           netConfig=msg.config||{};
           killTargetK=netConfig.killTargetK||30;
-          livesN=netConfig.livesN||3;
+          livesN=netConfig.livesN!=null?netConfig.livesN:1;
+          levelupTimeoutMs=netConfig.levelupTimeoutMs||8000;
+          if(netConfig.mode) mode=netConfig.mode;
+          if(netConfig.mapWidth) world.w = Number(netConfig.mapWidth) || world.w;
+          if(netConfig.mapHeight) world.h = Number(netConfig.mapHeight) || world.h;
+          if(netConfig.baseSpeed) baseSpeed = Number(netConfig.baseSpeed) || baseSpeed;
           startPing();
           resolve(msg);
           return;
@@ -338,7 +397,6 @@
         stopPing();
         if(screen===Screen.INGAME || screen===Screen.MATCHING || screen===Screen.READY){
           sysToast('连接已断开');
-          // if still in game without room.end, go lobby after short delay
         }
       };
     });
@@ -356,6 +414,21 @@
     if(ws && ws.readyState===1) ws.send(JSON.stringify(obj));
   }
 
+  function applyFactionUI(){
+    const mine = FACTION[myTeam] || FACTION.red;
+    const opp = FACTION[oppTeam] || FACTION.blue;
+    ui.readyFaction.className = 'faction-badge ' + mine.id;
+    ui.readyFaction.querySelector('.dot').style.background = mine.color;
+    ui.readyFactionText.textContent = '你是' + mine.name;
+    ui.factionDot.style.background = mine.color;
+    ui.youDot.style.background = mine.color;
+    ui.oppDot.style.background = opp.color;
+    ui.youLabel.textContent = '你 · ' + (mine.id==='red'?'红':'蓝');
+    ui.oppLabel.textContent = '对手 · ' + (opp.id==='red'?'红':'蓝');
+    ui.scoreYou.className = 'score-side ' + mine.id;
+    ui.scoreOpp.className = 'score-side ' + opp.id;
+  }
+
   function onNet(msg){
     switch(msg.type){
       case 'pong': break;
@@ -369,15 +442,28 @@
         sysToast('暂时没人，稍后再试');
         break;
       case 'match.found':
-        opponentName = (msg.opponent && msg.opponent.playerName) || '对手';
+        opponentName = (msg.opponent && (msg.opponent.playerName||msg.opponent.playerId)) || '对手';
+        if(msg.opponent && msg.opponent.playerId) opponentId = msg.opponent.playerId;
+        if(msg.youTeam) myTeam = msg.youTeam;
+        if(msg.opponent && msg.opponent.team) oppTeam = msg.opponent.team;
+        if(msg.mode) mode = msg.mode;
         ui.readyNames.textContent = `你（${playerName}） · ${opponentName}`;
         break;
       case 'room.start':
         roomCfg = msg.config || {};
         killTargetK = roomCfg.killTargetK || killTargetK;
-        livesN = roomCfg.livesN || livesN;
-        scoreYou = {kills: msg.you?.kills||0, lives: msg.you?.lives||livesN, alive:true, reviveAt:null, speedMul:1};
-        scoreOpp = {kills: msg.opponent?.kills||0, lives: msg.opponent?.lives||livesN, alive:true, reviveAt:null, speedMul:1};
+        livesN = roomCfg.livesN!=null ? roomCfg.livesN : livesN;
+        levelupTimeoutMs = roomCfg.levelupTimeoutMs || levelupTimeoutMs || 8000;
+        mode = msg.mode || mode || 'shared_map';
+        myTeam = (msg.you && msg.you.team) || myTeam || 'red';
+        oppTeam = (msg.opponent && msg.opponent.team) || (myTeam==='red'?'blue':'red');
+        if(msg.you && msg.you.playerId) playerId = msg.you.playerId;
+        if(msg.opponent && msg.opponent.playerId) opponentId = msg.opponent.playerId;
+        scoreYou = {kills: msg.you?.kills||0, lives: msg.you?.lives??livesN, alive:true, reviveAt:null, speedMul:1, team:myTeam};
+        scoreOpp = {kills: msg.opponent?.kills||0, lives: msg.opponent?.lives??livesN, alive:true, reviveAt:null, speedMul:1, team:oppTeam};
+        applyFactionUI();
+        useAuthority=false;
+        useFallback=true;
         stopMatchCountdown();
         setScreen(Screen.READY);
         startBattle(msg.seed);
@@ -385,44 +471,99 @@
           if(screen===Screen.READY){
             setScreen(Screen.INGAME);
             updateScoreUI();
+            showMessage('同图开战 · 无迷雾');
           }
-        }, 1100);
+        }, 1200);
+        break;
+      case 'world.snapshot':
+        applyWorldSnapshot(msg);
+        break;
+      case 'world.pause':
+        worldPaused=true;
+        if(msg.reason==='levelup'){
+          // offer 可能先到；若仅 pause，也进入等待/选卡态
+          if(!levelupSession){
+            levelupSession={
+              forPlayerId: msg.forPlayerId,
+              options: null,
+              deadline: msg.deadline || (Date.now()+(msg.timeoutMs||levelupTimeoutMs)),
+              timeoutMs: msg.timeoutMs||levelupTimeoutMs,
+            };
+          } else {
+            if(msg.deadline) levelupSession.deadline = msg.deadline;
+            if(msg.forPlayerId) levelupSession.forPlayerId = msg.forPlayerId;
+          }
+          if(!downed) showLevelupUI(levelupSession);
+          else levelUpQueued=true;
+        }
+        break;
+      case 'world.resume':
+        worldPaused=false;
+        closeLevelupUI();
         break;
       case 'room.score':
         scoreYou = Object.assign(scoreYou, msg.you||{});
         scoreOpp = Object.assign(scoreOpp, msg.opponent||{});
-        if(msg.lagBonusOn==='you'){
-          ui.lagTip.classList.add('on');
-        } else {
-          ui.lagTip.classList.remove('on');
-        }
-        if(msg.lagBonusOn==='you' && lastLagBonusOn!=='you'){
-          showMessage('移速补偿生效');
-        } else if(lastLagBonusOn==='you' && msg.lagBonusOn!=='you'){
-          showMessage('补偿结束');
-        }
+        if(msg.you && msg.you.team) myTeam = msg.you.team;
+        if(msg.opponent && msg.opponent.team) oppTeam = msg.opponent.team;
+        if(msg.lagBonusOn==='you') ui.lagTip.classList.add('on');
+        else ui.lagTip.classList.remove('on');
+        if(msg.lagBonusOn==='you' && lastLagBonusOn!=='you') showMessage('移速补偿生效');
+        else if(lastLagBonusOn==='you' && msg.lagBonusOn!=='you') showMessage('补偿结束');
         lastLagBonusOn = msg.lagBonusOn;
-        // 命未尽只扣命：本地立刻回满 HP + 短无敌
         if(player && scoreYou.alive && scoreYou.lives>0 && !downed && player.hp<=0){
           player.hp = player.maxHp;
           player.invuln = Math.max(player.invuln||0, 0.55);
         }
+        applyFactionUI();
         updateScoreUI();
         break;
+      case 'combat.kill_ack':
+        if(msg.killerId===playerId){
+          scoreYou.kills = msg.kills!=null?msg.kills:scoreYou.kills;
+          updateScoreUI();
+          // 权威模式无本地 orb：按击杀给 XP，触发 levelup.request
+          if(useAuthority && player){
+            const xpGain = msg.enemyType==='watcher'?3:msg.enemyType==='swift'?2:1;
+            gainXp(xpGain);
+          }
+          if(useAuthority){
+            const now=performance.now();
+            if(now-injectHintAt>1600){
+              injectHintAt=now;
+              setTimeout(()=>{ if(battleActive && screen===Screen.INGAME) showMessage('已塞给对手'); }, 420);
+            }
+          }
+        } else if(msg.killerId===opponentId){
+          scoreOpp.kills = msg.kills!=null?msg.kills:scoreOpp.kills;
+          updateScoreUI();
+        }
+        break;
       case 'combat.inject':
-        // 协议含 to；缺省则忽略更安全
-        if(msg.to===playerId){
+        {
           if(msg.queued) break;
-          spawnInjected(msg.enemyType);
-          const now=performance.now();
-          if(now-injectBurst.t<800){ injectBurst.n++; }
-          else { injectBurst={n:1,t:now}; }
-          injectBurst.t=now;
-          showMessage(injectBurst.n>1 ? `对手塞来 ×${injectBurst.n}` : `对手塞来 · ${typeName(msg.enemyType)}`);
+          const toMe = msg.to===playerId || msg.ownerId===playerId;
+          const toOpp = msg.to===opponentId || msg.ownerId===opponentId;
+          if(useFallback && !useAuthority){
+            if(toMe) spawnInjected(msg.enemyType, myTeam, playerId);
+            else if(toOpp) spawnInjected(msg.enemyType, oppTeam, opponentId);
+          }
+          if(toMe){
+            const now=performance.now();
+            if(now-injectBurst.t<800){ injectBurst.n++; }
+            else { injectBurst={n:1,t:now}; }
+            injectBurst.t=now;
+            showMessage(injectBurst.n>1 ? `对手塞来 ×${injectBurst.n}` : `对手塞来 · ${typeName(msg.enemyType)}`);
+          } else if(toOpp){
+            const now=performance.now();
+            if(now-injectHintAt>1600){
+              injectHintAt=now;
+              showMessage('已塞给对手');
+            }
+          }
         }
         break;
       case 'combat.inject_denied':
-        // 极弱一次：长冷却，别吵
         {
           const now=performance.now();
           if(now-injectDeniedAt>10000){
@@ -431,9 +572,24 @@
           }
         }
         break;
-      case 'combat.down':
+      case 'combat.hit':
         if(msg.playerId===playerId){
-          enterRevive(msg.reviveAt);
+          scoreYou.lives = msg.lives!=null?msg.lives:scoreYou.lives;
+          if(scoreYou.lives<=0) scoreYou.alive=false;
+          updateScoreUI();
+        } else {
+          scoreOpp.lives = msg.lives!=null?msg.lives:scoreOpp.lives;
+          if(scoreOpp.lives<=0){ scoreOpp.alive=false; if(foe) foe.alive=false; }
+          updateScoreUI();
+        }
+        break;
+      case 'combat.down':
+        if(msg.playerId===playerId) enterRevive(msg.reviveAt);
+        else {
+          scoreOpp.alive=false;
+          scoreOpp.lives=0;
+          if(foe) foe.alive=false;
+          updateScoreUI();
         }
         break;
       case 'combat.revive':
@@ -442,7 +598,35 @@
         } else {
           scoreOpp.lives = msg.lives||livesN;
           scoreOpp.alive = true;
+          if(foe){ foe.alive=true; foe.invuln=0.55; }
           updateScoreUI();
+        }
+        break;
+      case 'levelup.offer':
+        levelupLocalFallback=false;
+        pendingLevelUp=false;
+        levelupSession={
+          forPlayerId: msg.forPlayerId,
+          options: Array.isArray(msg.options)?msg.options:[],
+          deadline: msg.deadline || (Date.now()+(msg.timeoutMs||levelupTimeoutMs)),
+          timeoutMs: msg.timeoutMs||levelupTimeoutMs,
+        };
+        worldPaused=true;
+        if(downed){ levelUpQueued=true; }
+        else showLevelupUI(levelupSession);
+        break;
+      case 'levelup.resolved':
+        {
+          const mine = msg.forPlayerId===playerId;
+          const opt = (levelupSession && levelupSession.options||[]).find(o=>o.id===msg.optionId);
+          const label = (opt && (opt.label||opt.name)) || msg.optionId || '强化';
+          if(mine){
+            applyLevelupOptionId(msg.optionId, opt);
+            showMessage((msg.auto?'超时随机 · ':'') + label + ' 已强化');
+          } else {
+            showMessage('对方已选择 · ' + label);
+          }
+          closeLevelupUI();
         }
         break;
       case 'room.end':
@@ -480,11 +664,9 @@
     ui.heartsOpp.innerHTML = hearts(scoreOpp.alive?scoreOpp.lives:0, livesN);
     ui.progYou.style.width = (100*Math.min(1, scoreYou.kills/K))+'%';
     ui.progOpp.style.width = (100*Math.min(1, scoreOpp.kills/K))+'%';
-    ui.scoreYou.classList.toggle('lead', scoreYou.kills>scoreOpp.kills);
-    ui.scoreOpp.classList.toggle('lead', scoreOpp.kills>scoreYou.kills);
   }
 
-  // ---------- Game (Demo-aligned) ----------
+  // ---------- Game ----------
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   let W=0,H=0;
   function resize(){
@@ -495,10 +677,10 @@
   }
   addEventListener('resize', resize); resize();
 
-  const world={w:3600,h:3600};
+  const world={w:1600,h:1000};
   const keys=new Set();
   const stick={x:0,y:0};
-  let player, enemies, orbs, particles, flashes, trail;
+  let player, foe, enemies, orbs, particles, flashes, trail;
   let localKills=0, elapsed=0, spawnClock=0, difficulty=1;
   let paused=false, downed=false, battleActive=false;
   let camera={x:0,y:0};
@@ -507,6 +689,7 @@
   let upgradeSpeedMul=1;
   let levelUpQueued=false;
   let deathPending=false;
+  let moveDir={x:0,y:0};
 
   const rand=(a,b)=>a+rng()*(b-a);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -520,11 +703,9 @@
       return ((t^t>>>14)>>>0)/4294967296;
     };
   }
-
   function fmtTime(s){
     s=Math.floor(s); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
   }
-
   function polygonArea(poly){
     let a=0;
     for(let i=0,j=poly.length-1;i<poly.length;j=i++) a+=(poly[j].x*poly[i].y-poly[i].x*poly[j].y);
@@ -539,7 +720,6 @@
     }
     return inside;
   }
-
   function addParticle(x,y,kind='ink',count=7){
     for(let i=0;i<count;i++){
       const a=Math.random()*Math.PI*2,s=rand(30,150);
@@ -547,47 +727,175 @@
     }
   }
 
-  function enemyData(type){
-    return type==='swift' ? {r:10,speed:132,sight:190,color:'#e8a15c',damage:10,xp:2}
-      : type==='watcher' ? {r:16,speed:86,sight:330,color:'#a77aa8',damage:16,xp:3}
-      : {r:13,speed:96,sight:245,color:'#d96159',damage:12,xp:1};
+  // 类型只决定体型/速度；颜色一律走阵营
+  function enemyStats(type){
+    return type==='swift' ? {r:10,speed:132,sight:190,damage:10,xp:2}
+      : type==='watcher' ? {r:16,speed:86,sight:330,damage:16,xp:3}
+      : {r:13,speed:96,sight:245,damage:12,xp:1};
   }
 
-  function spawnEnemy(forceNear=false, forcedType=null, isInject=false){
+  function makeActor(team, x, y, pid){
+    return {
+      playerId: pid||null,
+      team, x, y, r:13, speed:220,
+      hp:100, maxHp:100, invuln:1.0,
+      pickup:85, closureRadius:28, minLoopArea:2300,
+      trailWidth:7, maxTrail:520,
+      level:1, xp:0, xpNeed:12,
+      alive:true, vx:0, vy:0,
+    };
+  }
+
+  function spawnEnemyNear(owner, forceNear=false, forcedType=null, isInject=false){
     const angle=Math.random()*Math.PI*2;
     let radius=forceNear?rand(470,680):rand(560,1050);
     if(isInject) radius=rand(380,620);
-    let x=clamp(player.x+Math.cos(angle)*radius,60,world.w-60);
-    let y=clamp(player.y+Math.sin(angle)*radius,60,world.h-60);
+    let x=clamp(owner.x+Math.cos(angle)*radius,60,world.w-60);
+    let y=clamp(owner.y+Math.sin(angle)*radius,60,world.h-60);
     let type=forcedType;
     if(!type){
       const roll=Math.random();
       type = roll < Math.min(.12 + elapsed/600, .24) ? 'swift' : roll > .91 ? 'watcher' : 'drifter';
     }
-    const data=enemyData(type);
-    enemies.push({x,y,...data,type,state:'wander',angle:Math.random()*Math.PI*2,wanderT:rand(.5,2.5),alert:0,attackCd:0,hitFlash:0,seed:Math.random()*9,injected:!!isInject, eid:'e_'+Math.random().toString(36).slice(2,9)});
+    const st=enemyStats(type);
+    enemies.push({
+      x,y,...st,type,
+      team: owner.team,
+      ownerId: owner.playerId || (owner===player ? playerId : opponentId),
+      state:'wander', angle:Math.random()*Math.PI*2,
+      wanderT:rand(.5,2.5), alert:0, attackCd:0, hitFlash:0,
+      injected:!!isInject, dead:false,
+      id:'e_'+Math.random().toString(36).slice(2,9),
+    });
   }
 
-  function spawnInjected(type){
+  function spawnInjected(type, team, ownerId){
     if(!battleActive || !VALID_TYPE(type)) return;
-    spawnEnemy(true, type, true);
+    const owner = (ownerId===playerId || team===myTeam) ? player : foe;
+    if(!owner) return;
+    spawnEnemyNear(owner, true, type, true);
   }
   function VALID_TYPE(t){ return t==='drifter'||t==='swift'||t==='watcher'; }
 
-  function killEnemy(e, byLoop=true){
+
+  function softSetPos(ent, x, y, hard=56, alpha=0.28){
+    if(!ent) return;
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const dx=x-ent.x, dy=y-ent.y;
+    const d=Math.hypot(dx,dy);
+    if(d>hard){ ent.x=x; ent.y=y; }
+    else { ent.x+=dx*alpha; ent.y+=dy*alpha; }
+  }
+
+  function isSelfPlayer(p){
+    if(!p) return false;
+    const id = p.playerId != null ? String(p.playerId) : '';
+    if(playerId != null && id && id === String(playerId)) return true;
+    return false;
+  }
+
+  function isFoePlayer(p){
+    if(!p || isSelfPlayer(p)) return false;
+    const id = p.playerId != null ? String(p.playerId) : '';
+    if(opponentId != null && id && id === String(opponentId)) return true;
+    // snapshot 里非本方即对手（2 人房）
+    return !!id;
+  }
+
+  let foeSnapReady=false;
+
+  function applyWorldSnapshot(msg){
+    if(!battleActive && screen!==Screen.READY && screen!==Screen.INGAME) return;
+    if(typeof msg.seq==='number' && msg.seq < snapshotSeq) return;
+    snapshotSeq = msg.seq!=null ? msg.seq : snapshotSeq;
+    useAuthority = true;
+    useFallback = false;
+    ui.todoNote.classList.remove('show');
+    worldPaused = !!msg.paused;
+
+    const plist = Array.isArray(msg.players) ? msg.players : [];
+    for(const p of plist){
+      if(isSelfPlayer(p)){
+        if(player){
+          // 本机手感优先：本地人物位置完全由本地输入驱动，快照默认不拽
+          // 仅在严重偏离（传送/卡死）时硬纠正一次
+          if(Number.isFinite(p.x) && Number.isFinite(p.y)){
+            const dx=p.x-player.x, dy=p.y-player.y;
+            if(Math.hypot(dx,dy) > 280){ player.x=p.x; player.y=p.y; }
+          }
+          player.alive = p.alive!==false;
+          player.team = p.team || myTeam;
+        }
+        scoreYou.kills = p.kills!=null?p.kills:scoreYou.kills;
+        scoreYou.lives = p.lives!=null?p.lives:scoreYou.lives;
+        scoreYou.alive = p.alive!==false;
+        scoreYou.speedMul = p.speedMul!=null?p.speedMul:scoreYou.speedMul;
+        scoreYou.reviveAt = p.reviveAt;
+        if(p.team) myTeam = p.team;
+        if(!p.alive && !downed) enterRevive(p.reviveAt);
+        if(p.alive && downed) doLocalRevive(p.lives!=null?p.lives:livesN);
+      } else if(isFoePlayer(p)){
+        opponentId = p.playerId || opponentId;
+        if(!foe) foe = makeActor(p.team||oppTeam, Number.isFinite(p.x)?p.x:world.w/2, Number.isFinite(p.y)?p.y:world.h/2, p.playerId);
+        foe.playerId = p.playerId;
+        // 首帧硬对齐，避免软插值卡在旧出生点/NaN 导致「看不见对手」
+        if(Number.isFinite(p.x) && Number.isFinite(p.y)){
+          if(!foeSnapReady){ foe.x=p.x; foe.y=p.y; foeSnapReady=true; }
+          else softSetPos(foe, p.x, p.y, 72, 0.35);
+        }
+        foe.vx = p.vx||0; foe.vy = p.vy||0;
+        foe.alive = p.alive!==false;
+        foe.team = p.team || oppTeam;
+        if(!Number.isFinite(foe.r)) foe.r = 13;
+        scoreOpp.kills = p.kills!=null?p.kills:scoreOpp.kills;
+        scoreOpp.lives = p.lives!=null?p.lives:scoreOpp.lives;
+        scoreOpp.alive = p.alive!==false;
+        scoreOpp.speedMul = p.speedMul!=null?p.speedMul:1;
+        if(p.team) oppTeam = p.team;
+      }
+    }
+
+    const elist = Array.isArray(msg.enemies) ? msg.enemies : [];
+    const prev = new Map(enemies.map(e=>[e.id,e]));
+    const next=[];
+    for(const e of elist){
+      const type = e.enemyType || e.type || 'drifter';
+      const st = enemyStats(type);
+      const old = prev.get(e.id);
+      if(old){
+        softSetPos(old, e.x, e.y, 80, 0.35);
+        old.team = e.team || old.team;
+        old.ownerId = e.ownerId;
+        old.hp = e.hp!=null?e.hp:old.hp;
+        old.type = type;
+        Object.assign(old, st);
+        old.dead=false;
+        next.push(old);
+      } else {
+        next.push({
+          id: e.id,
+          x: e.x, y: e.y,
+          ...st,
+          type,
+          team: e.team || ((e.ownerId===playerId)?myTeam:oppTeam),
+          ownerId: e.ownerId,
+          hp: e.hp!=null?e.hp:1,
+          state:'wander', angle:Math.random()*Math.PI*2, wanderT:1, alert:0, attackCd:0, hitFlash:0,
+          injected:!!e.injected, dead:false,
+        });
+      }
+    }
+    enemies = next;
+    applyFactionUI();
+    updateScoreUI();
+  }
+
+  function killEnemyLocal(e, byLoop=true){
     if(e.dead) return;
     e.dead=true; localKills++;
     addParticle(e.x,e.y,'enemy',10);
     const n=e.xp;
     for(let i=0;i<n;i++) orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),vx:rand(-20,20),vy:rand(-20,20),value:1});
-    if(byLoop && localKills%20===0) showMessage('漂亮！ '+localKills+' 连斩');
-    // report to server
-    if(battleActive && !downed){
-      seq++;
-      netSend({type:'combat.kill', enemyType:e.type, enemyId:e.eid, seq});
-      // optimistic local toast for inject feedback
-      if(byLoop){ /* score comes from server */ }
-    }
   }
 
   function tryCloseLoop(){
@@ -607,32 +915,229 @@
     const area=polygonArea(poly);
     if(area<player.minLoopArea) return;
 
-    let count=0;
-    for(const e of enemies){
-      if(!e.dead && pointInPoly(e.x,e.y,poly)){ killEnemy(e,true); count++; }
-    }
-    flashes.push({poly,life:.55,max:.55,count});
-    addParticle(player.x,player.y,'ink',15);
-    if(count>0){
-      showMessage('封圈 · '+count+' 杀');
-      // 弱提示一次「已塞给对手」（与封圈文案错开，防刷屏）
-      if(battleActive && !downed && scoreYou.alive){
+    // 上报 input.loop（协议）；权威服裁决
+    const points = poly.map(p=>[Math.round(p.x*100)/100, Math.round(p.y*100)/100]);
+    seq++;
+    netSend({type:'input.loop', points, seq});
+
+    let countOwn=0, countOpp=0;
+    if(useFallback && !useAuthority){
+      for(const e of enemies){
+        if(e.dead) continue;
+        if(!pointInPoly(e.x,e.y,poly)) continue;
+        const own = (e.ownerId===playerId) || (e.team===myTeam);
+        if(own){
+          killEnemyLocal(e,true);
+          countOwn++;
+          // fallback：仍发旧 combat.kill 兼容 mock；真服用 input.loop
+          netSend({type:'combat.kill', enemyType:e.type, enemyId:e.id, seq});
+          // mock 塞敌本地表现
+          if(foe) spawnEnemyNear(foe, true, e.type, true);
+        } else countOpp++;
+      }
+      if(countOwn>0){
+        scoreYou.kills += countOwn;
+        updateScoreUI();
+        showMessage('封圈 · '+countOwn+' 杀');
         const now=performance.now();
         if(now-injectHintAt>1800){
           injectHintAt=now;
-          setTimeout(()=>{
-            if(battleActive && !downed && scoreYou.alive && screen===Screen.INGAME)
-              showMessage('已塞给对手');
-          }, 650);
+          setTimeout(()=>{ if(battleActive && screen===Screen.INGAME) showMessage('已塞给对手'); }, 650);
         }
+      } else if(countOpp>0){
+        showMessage('空圈（对面怪不可杀）');
+      } else showMessage('空圈');
+    } else {
+      // 权威模式：本地只做反馈 toast，实体以 snapshot 为准
+      let ownIn=0, oppIn=0;
+      for(const e of enemies){
+        if(e.dead) continue;
+        if(!pointInPoly(e.x,e.y,poly)) continue;
+        if((e.ownerId===playerId)||(e.team===myTeam)) ownIn++; else oppIn++;
       }
-    } else showMessage('空圈');
+      if(ownIn>0) showMessage('封圈 · '+ownIn+' 杀');
+      else if(oppIn>0) showMessage('空圈（对面怪不可杀）');
+      else showMessage('空圈');
+    }
+
+    flashes.push({poly,life:.55,max:.55,count:countOwn});
+    addParticle(player.x,player.y,'ink',15);
     trail=[{x:player.x,y:player.y,t:elapsed}];
+  }
+
+  // 设计说明 §5.3：大标签+短描述（本地 fallback 抽 3）；权威模式用服务端 options
+  const UPGRADE_POOL = [
+    {id:'step', label:'速度', name:'轻步', desc:'移速 +12%，更好拉圈', apply:()=>{upgradeSpeedMul*=1.12}},
+    {id:'close', label:'收笔', name:'宽容收笔', desc:'闭合判定距离 +5', apply:()=>{player.closureRadius+=5}},
+    {id:'trail', label:'笔迹', name:'长锋画笔', desc:'轨迹更长 +18%', apply:()=>{player.maxTrail=Math.floor(player.maxTrail*1.18)}},
+    {id:'hp', label:'生命', name:'厚纸', desc:'最大生命 +25，并回 25', apply:()=>{player.maxHp+=25;player.hp=Math.min(player.maxHp,player.hp+25)}},
+    {id:'suck', label:'吸取', name:'吸墨', desc:'经验吸取半径 +45', apply:()=>{player.pickup+=45}},
+    {id:'thick', label:'粗笔', name:'粗笔', desc:'轨迹更粗；封圈短暂无敌', apply:()=>{player.trailWidth+=1.8; player.invuln=Math.max(player.invuln,.45)}},
+    {id:'compose', label:'构图', name:'大构图', desc:'更小圈也能封', apply:()=>{player.minLoopArea=Math.max(900,player.minLoopArea*.86)}},
+    {id:'mend', label:'回复', name:'修补', desc:'立刻恢复 45 生命', apply:()=>{player.hp=Math.min(player.maxHp,player.hp+45)}},
+    // 服务端简版三选一 id 映射
+    {id:'spd', label:'速度', name:'速度', desc:'移速提升', apply:()=>{upgradeSpeedMul*=1.10}},
+    {id:'dmg', label:'伤害', name:'伤害', desc:'圈杀更强', apply:()=>{ /* 表现向 */ }},
+  ];
+
+  function findUpgrade(idOrOpt){
+    if(!idOrOpt) return null;
+    if(typeof idOrOpt==='object'){
+      const id=idOrOpt.id;
+      const hit=UPGRADE_POOL.find(u=>u.id===id);
+      if(hit) return Object.assign({}, hit, {
+        label: idOrOpt.label||hit.label,
+        desc: idOrOpt.desc||hit.desc,
+        name: idOrOpt.label||hit.name,
+      });
+      return {
+        id,
+        label: idOrOpt.label||id,
+        desc: idOrOpt.desc||'',
+        name: idOrOpt.label||id,
+        apply:()=>{},
+      };
+    }
+    return UPGRADE_POOL.find(u=>u.id===idOrOpt) || null;
+  }
+
+  function applyLevelupOptionId(optionId, optHint){
+    const up = findUpgrade(optHint && optHint.id ? optHint : optionId) || findUpgrade(optionId);
+    if(up && typeof up.apply==='function') up.apply();
+  }
+
+  function clearLevelupTimer(){
+    if(levelupTimerId){ clearInterval(levelupTimerId); levelupTimerId=null; }
+  }
+
+  function tickLevelupDeadline(){
+    if(!levelupSession) return;
+    const leftMs = Math.max(0, (levelupSession.deadline||0) - Date.now());
+    const left = Math.ceil(leftMs/1000);
+    const txt = left + 's';
+    const danger = left <= 3;
+    if(ui.levelupTimer){
+      ui.levelupTimer.textContent = txt;
+      ui.levelupTimer.classList.toggle('danger', danger);
+    }
+    if(ui.levelupWaitTimer){
+      ui.levelupWaitTimer.textContent = txt;
+      ui.levelupWaitTimer.classList.toggle('danger', danger);
+    }
+    if(levelupLocalFallback && leftMs<=0){
+      // 本地 fallback：超时随机
+      const opts = levelupSession.options||[];
+      if(opts.length){
+        const pick = opts[Math.floor(Math.random()*opts.length)];
+        pickLocalLevelup(pick.id, true);
+      }
+    }
+  }
+
+  function closeLevelupUI(){
+    clearLevelupTimer();
+    levelupSession=null;
+    levelupLocalFallback=false;
+    paused=false;
+    if(ui.levelup) ui.levelup.style.display='none';
+    if(ui.levelupPick) ui.levelupPick.style.display='';
+    if(ui.levelupWait) ui.levelupWait.style.display='none';
+    if(ui.cards) ui.cards.innerHTML='';
+  }
+
+  function showLevelupUI(session){
+    if(!session || !battleActive || screen===Screen.RESULT) return;
+    // 复活层优先：倒地中不弹选卡
+    if(downed || (ui.revive && ui.revive.style.display==='flex')){
+      levelUpQueued=true;
+      return;
+    }
+    levelupSession = session;
+    paused=true;
+    worldPaused=true;
+    ui.levelup.style.display='flex';
+    ui.levelup.onclick=(e)=>{ if(e.target===ui.levelup) e.stopPropagation(); };
+
+    const mine = !session.forPlayerId || session.forPlayerId===playerId;
+    if(mine){
+      ui.levelupPick.style.display='';
+      ui.levelupWait.style.display='none';
+      if(ui.levelupHint) ui.levelupHint.textContent='超时将随机选择';
+      ui.cards.innerHTML='';
+      let options = Array.isArray(session.options) ? session.options.slice() : null;
+      if(!options || !options.length){
+        const demoIds=new Set(['step','close','trail','hp','suck','thick','compose','mend']);
+        options = UPGRADE_POOL.filter(u=>demoIds.has(u.id))
+          .sort(()=>Math.random()-.5).slice(0,3)
+          .map(u=>({id:u.id,label:u.label,desc:u.desc}));
+        session.options = options;
+      }
+      for(const raw of options){
+        const up = findUpgrade(raw);
+        const b=document.createElement('button');
+        b.className='card';
+        b.type='button';
+        b.innerHTML=`<div class="label">${up.label}</div><div class="desc">${up.desc}</div>`;
+        b.onclick=()=>{
+          if(levelupLocalFallback) pickLocalLevelup(up.id, false);
+          else {
+            netSend({type:'levelup.pick', optionId: up.id});
+            // 等 levelup.resolved / world.resume；禁用重复点
+            ui.cards.querySelectorAll('button').forEach(x=>x.disabled=true);
+          }
+        };
+        ui.cards.appendChild(b);
+      }
+    } else {
+      // 未升级方：不展示对方三张卡
+      ui.levelupPick.style.display='none';
+      ui.levelupWait.style.display='';
+    }
+
+    if(!session.deadline){
+      session.deadline = Date.now() + (session.timeoutMs||levelupTimeoutMs||8000);
+    }
+    clearLevelupTimer();
+    tickLevelupDeadline();
+    levelupTimerId=setInterval(tickLevelupDeadline, 200);
+  }
+
+  function pickLocalLevelup(optionId, auto){
+    if(!levelupSession) return;
+    applyLevelupOptionId(optionId);
+    const up = findUpgrade(optionId);
+    const label = (up && up.label) || optionId;
+    showMessage((auto?'超时随机 · ':'') + label + ' 已强化');
+    netSend({type:'meta.levelup', level:player.level, choiceId:optionId});
+    closeLevelupUI();
+    worldPaused=false;
+  }
+
+  function openLevelUp(){
+    // 权威：请求服务端发起双方暂停三选一
+    if(useAuthority){
+      pendingLevelUp=true;
+      netSend({type:'levelup.request'});
+      return;
+    }
+    // fallback：本地三选一 + 8s 超时随机（双方若同连 mock 则由 mock 广播）
+    levelupLocalFallback=true;
+    const options = [...UPGRADE_POOL]
+      .filter(u=>!['spd','dmg'].includes(u.id))
+      .sort(()=>Math.random()-.5).slice(0,3)
+      .map(u=>({id:u.id,label:u.label,desc:u.desc}));
+    levelupSession={
+      forPlayerId: playerId,
+      options,
+      deadline: Date.now()+(levelupTimeoutMs||8000),
+      timeoutMs: levelupTimeoutMs||8000,
+    };
+    showLevelupUI(levelupSession);
   }
 
   function gainXp(v){
     player.xp += v;
-    if(player.xp >= player.xpNeed && !paused){
+    if(player.xp >= player.xpNeed && !paused && !worldPaused && !pendingLevelUp){
       player.xp -= player.xpNeed;
       player.level++;
       player.xpNeed = Math.floor(12 + player.level*5.5 + player.level*player.level*.55);
@@ -641,46 +1146,33 @@
     }
   }
 
-  const upgrades = [
-    {icon:'➜',name:'轻步',desc:'移动速度 +12%，更容易迅速拉出大圈。',apply:()=>{upgradeSpeedMul*=1.12}},
-    {icon:'◯',name:'宽容收笔',desc:'闭合判定距离 +5px，封圈更容易触发。',apply:()=>player.closureRadius+=5},
-    {icon:'✦',name:'长锋画笔',desc:'保留的移动轨迹长度 +18%。',apply:()=>player.maxTrail=Math.floor(player.maxTrail*1.18)},
-    {icon:'❤',name:'厚纸',desc:'最大生命 +25，并立即恢复 25。',apply:()=>{player.maxHp+=25;player.hp=Math.min(player.maxHp,player.hp+25)}},
-    {icon:'◎',name:'吸墨',desc:'经验吸取半径 +45。',apply:()=>player.pickup+=45},
-    {icon:'⌁',name:'粗笔',desc:'画笔轨迹更明显；封圈时获得 0.45 秒无敌。',apply:()=>{player.trailWidth+=1.8; player.invuln=Math.max(player.invuln,.45)}},
-    {icon:'◇',name:'大构图',desc:'最小封圈面积 -14%，小圈也更容易生效。',apply:()=>player.minLoopArea=Math.max(900,player.minLoopArea*.86)},
-    {icon:'✚',name:'修补',desc:'立刻恢复 45 点生命。',apply:()=>player.hp=Math.min(player.maxHp,player.hp+45)}
-  ];
-
-  function openLevelUp(){
-    paused=true; ui.levelup.style.display='flex'; ui.cards.innerHTML='';
-    // 遮罩不可点关闭，必须点卡；复活中不抢开（由 levelUpQueued 延后）
-    ui.levelup.onclick=(e)=>{ if(e.target===ui.levelup) e.stopPropagation(); };
-    const pool=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);
-    for(const up of pool){
-      const b=document.createElement('button'); b.className='card';
-      b.innerHTML=`<div class="icon">${up.icon}</div><h3>${up.name}</h3><p>${up.desc}</p>`;
-      b.onclick=()=>{
-        up.apply();
-        ui.levelup.style.display='none';
-        paused=false;
-        showMessage(up.name+' 已强化');
-        netSend({type:'meta.levelup', level:player.level, choiceId:up.name});
-      };
-      ui.cards.appendChild(b);
-    }
-  }
-
   function updateEnemy(e,dt){
+    // 权威模式：位移跟服务端；本地仍结算「怪打主人」HP（服务端暂无 HP 条）
+    if(useAuthority){
+      e.attackCd=Math.max(0,e.attackCd-dt); e.hitFlash=Math.max(0,e.hitFlash-dt);
+      const owner = ((e.ownerId===playerId)||(e.team===myTeam)) ? player : foe;
+      if(owner===player && !downed && player && player.alive!==false){
+        const dx=player.x-e.x, dy=player.y-e.y, d=Math.hypot(dx,dy);
+        const rr=player.r+e.r;
+        if(d<rr+3 && e.attackCd<=0 && player.invuln<=0){
+          player.hp-=e.damage; player.invuln=.55; e.attackCd=.8; e.hitFlash=.18;
+          const push=20/(d||1); player.x=clamp(player.x+dx*push,player.r,world.w-player.r); player.y=clamp(player.y+dy*push,player.r,world.h-player.r);
+          addParticle(player.x,player.y,'hurt',8);
+          if(player.hp<=0) onLocalDeath();
+        }
+      }
+      return;
+    }
     e.attackCd=Math.max(0,e.attackCd-dt); e.hitFlash=Math.max(0,e.hitFlash-dt);
-    if(downed){ // still wander a bit
+    const owner = ((e.ownerId===playerId)||(e.team===myTeam)) ? player : foe;
+    if(!owner || !owner.alive){
       e.wanderT-=dt;
       if(e.wanderT<=0){e.wanderT=rand(1,3.4);e.angle+=rand(-1.6,1.6);}
       const vx=Math.cos(e.angle)*e.speed*.27, vy=Math.sin(e.angle)*e.speed*.27;
       e.x=clamp(e.x+vx*dt,e.r,world.w-e.r); e.y=clamp(e.y+vy*dt,e.r,world.h-e.r);
       return;
     }
-    const dx=player.x-e.x, dy=player.y-e.y, d=Math.hypot(dx,dy);
+    const dx=owner.x-e.x, dy=owner.y-e.y, d=Math.hypot(dx,dy);
     if(d < e.sight){ e.state='alert'; e.alert=1.1; }
     else if(e.alert>0){ e.alert-=dt; }
     else e.state='wander';
@@ -696,12 +1188,15 @@
     }
     e.x=clamp(e.x+vx*dt,e.r,world.w-e.r); e.y=clamp(e.y+vy*dt,e.r,world.h-e.r);
 
-    const rr=player.r+e.r;
-    if(d<rr+3 && e.attackCd<=0 && player.invuln<=0){
-      player.hp-=e.damage; player.invuln=.55; e.attackCd=.8; e.hitFlash=.18;
-      const push=20/(d||1); player.x=clamp(player.x+dx*push,player.r,world.w-player.r); player.y=clamp(player.y+dy*push,player.r,world.h-player.r);
-      addParticle(player.x,player.y,'hurt',8);
-      if(player.hp<=0) onLocalDeath();
+    // 怪只打主人
+    if(owner===player && !downed){
+      const rr=player.r+e.r;
+      if(d<rr+3 && e.attackCd<=0 && player.invuln<=0){
+        player.hp-=e.damage; player.invuln=.55; e.attackCd=.8; e.hitFlash=.18;
+        const push=20/(d||1); player.x=clamp(player.x+dx*push,player.r,world.w-player.r); player.y=clamp(player.y+dy*push,player.r,world.h-player.r);
+        addParticle(player.x,player.y,'hurt',8);
+        if(player.hp<=0) onLocalDeath();
+      }
     }
   }
 
@@ -728,10 +1223,16 @@
   let reviveLocalTimer=null;
   function enterRevive(reviveAt){
     downed=true;
-    // 复活优先于升级：打断选卡时排队，复活后再开
-    if(ui.levelup.style.display==='flex' || paused) levelUpQueued=true;
-    paused=false; // only lock controls via downed
-    ui.levelup.style.display='none';
+    deathPending=false;
+    if(player) player.alive=false;
+    scoreYou.alive=false;
+    scoreYou.lives=0;
+    updateScoreUI();
+    if(ui.levelup.style.display==='flex' || paused || levelupSession) levelUpQueued=true;
+    // 倒地不解除世界暂停语义由服务端管；本方 UI 优先复活层
+    paused=false;
+    if(ui.levelup) ui.levelup.style.display='none';
+    clearLevelupTimer();
     ui.revive.style.display='flex';
     let at=Number(reviveAt);
     if(!Number.isFinite(at) || at<=0){
@@ -739,10 +1240,8 @@
       at=Date.now()+ms;
     }
     const tick=()=>{
-      // 倒计时用服务端剩余时间（reviveAt 绝对时刻）
       const left=Math.max(0, Math.ceil((at-Date.now())/1000));
       ui.reviveCount.textContent=String(left);
-      if(left<=0){ /* wait for server revive */ }
     };
     tick();
     clearInterval(reviveLocalTimer);
@@ -756,35 +1255,72 @@
     downed=false;
     scoreYou.lives=lives;
     scoreYou.alive=true;
+    player.alive=true;
     player.hp=player.maxHp;
     player.invuln=0.55;
-    player.x=world.w/2; player.y=world.h/2;
+    if(!useAuthority){
+      player.x=world.w/2; player.y=world.h/2;
+    }
     trail=[{x:player.x,y:player.y,t:elapsed}];
     updateScoreUI();
-    if(levelUpQueued){ levelUpQueued=false; openLevelUp(); }
+    if(levelUpQueued){
+      levelUpQueued=false;
+      if(levelupSession) showLevelupUI(levelupSession);
+      else openLevelUp();
+    }
+  }
+
+  function updateFoeAI(dt){
+    if(!foe || !foe.alive || useAuthority) return;
+    // 轻量游荡 + 轻微朝向己方
+    foe._aiT = (foe._aiT||0) - dt;
+    if(foe._aiT<=0){
+      foe._aiT = rand(0.6, 1.8);
+      const ang = Math.atan2(player.y-foe.y, player.x-foe.x) + rand(-0.9,0.9);
+      foe._ax = Math.cos(ang); foe._ay = Math.sin(ang);
+    }
+    const sp = 160;
+    foe.x = clamp(foe.x + (foe._ax||0)*sp*dt, foe.r, world.w-foe.r);
+    foe.y = clamp(foe.y + (foe._ay||0)*sp*dt, foe.r, world.h-foe.r);
+  }
+
+  function reportMove(dt){
+    moveReportAccum += dt;
+    if(moveReportAccum < 0.033) return; // ~30Hz
+    moveReportAccum = 0;
+    const x = moveDir.x, y = moveDir.y;
+    if(x===lastMoveSent.x && y===lastMoveSent.y && x===0 && y===0) return;
+    lastMoveSent={x,y};
+    seq++;
+    netSend({type:'input.move', x, y, seq});
   }
 
   function update(dt){
     if(!battleActive || screen===Screen.RESULT) return;
-    // apply speedMul from server
     player.speed = baseSpeed * upgradeSpeedMul * (scoreYou.speedMul || 1);
 
-    if(paused){ // levelup pause — still update message timer
+    if(paused || worldPaused){
       if(msgTimer>0){msgTimer-=dt;if(msgTimer<=0)ui.message.style.opacity='0';}
+      reportMove(dt); // 仍可上报 0 方向
       return;
     }
 
     elapsed+=dt; difficulty=1+elapsed/75;
     player.invuln=Math.max(0,player.invuln-dt);
+    if(foe) foe.invuln=Math.max(0,(foe.invuln||0)-dt);
 
-    // spawn baseline even when downed (map keeps living)
-    spawnClock-=dt;
-    if(spawnClock<=0){
-      spawnClock=Math.max(.22,1.0/difficulty);
-      if(enemies.length<180) spawnEnemy();
+    // fallback 刷怪：双方各刷
+    if(useFallback && !useAuthority){
+      spawnClock-=dt;
+      if(spawnClock<=0){
+        spawnClock=Math.max(.28,1.05/difficulty);
+        if(enemies.filter(e=>e.team===myTeam).length<70) spawnEnemyNear(player);
+        if(foe && enemies.filter(e=>e.team===oppTeam).length<70) spawnEnemyNear(foe);
+      }
     }
 
-    if(!downed){
+    moveDir={x:0,y:0};
+    if(!downed && player.alive!==false){
       let mx=0,my=0;
       if(keys.has('KeyW')||keys.has('ArrowUp')) my--;
       if(keys.has('KeyS')||keys.has('ArrowDown')) my++;
@@ -792,8 +1328,11 @@
       if(keys.has('KeyD')||keys.has('ArrowRight')) mx++;
       mx+=stick.x; my+=stick.y;
       const ml=Math.hypot(mx,my);
+      if(ml>0){ mx/=ml; my/=ml; }
+      moveDir={x:mx,y:my};
+
+      // 本机永远本地移动（手感优先）；快照不覆盖本机坐标
       if(ml>0){
-        mx/=ml; my/=ml;
         const ox=player.x,oy=player.y;
         player.x=clamp(player.x+mx*player.speed*dt,player.r,world.w-player.r);
         player.y=clamp(player.y+my*player.speed*dt,player.r,world.h-player.r);
@@ -807,18 +1346,22 @@
         }
       }
     }
+    reportMove(dt);
 
-    for(const e of enemies) if(!e.dead) updateEnemy(e,dt);
-    enemies=enemies.filter(e=>!e.dead);
+    if(useFallback && !useAuthority){
+      updateFoeAI(dt);
+      for(const e of enemies) if(!e.dead) updateEnemy(e,dt);
+      enemies=enemies.filter(e=>!e.dead);
 
-    if(!downed){
-      for(const o of orbs){
-        o.x+=o.vx*dt; o.y+=o.vy*dt; o.vx*=Math.pow(.08,dt);o.vy*=Math.pow(.08,dt);
-        const dx=player.x-o.x,dy=player.y-o.y,d=Math.hypot(dx,dy);
-        if(d<player.pickup){const f=1-d/player.pickup;o.x+=dx*dt*(4+f*10);o.y+=dy*dt*(4+f*10);}
-        if(d<player.r+8){o.dead=true;gainXp(o.value);}
+      if(!downed){
+        for(const o of orbs){
+          o.x+=o.vx*dt; o.y+=o.vy*dt; o.vx*=Math.pow(.08,dt);o.vy*=Math.pow(.08,dt);
+          const dx=player.x-o.x,dy=player.y-o.y,d=Math.hypot(dx,dy);
+          if(d<player.pickup){const f=1-d/player.pickup;o.x+=dx*dt*(4+f*10);o.y+=dy*dt*(4+f*10);}
+          if(d<player.r+8){o.dead=true;gainXp(o.value);}
+        }
+        orbs=orbs.filter(o=>!o.dead);
       }
-      orbs=orbs.filter(o=>!o.dead);
     }
 
     for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.09,dt);p.vy*=Math.pow(.09,dt)}
@@ -826,8 +1369,22 @@
     for(const f of flashes) f.life-=dt;
     flashes=flashes.filter(f=>f.life>0);
 
-    const cx = downed ? camera.x : player.x;
-    const cy = downed ? camera.y : player.y;
+    let cx = camera.x, cy = camera.y;
+    if(player){
+      if(foe && foe.alive!==false && player.alive!==false && !downed){
+        // 尽量把双方框进镜头；距离过大则仍以本方为主
+        const dx=foe.x-player.x, dy=foe.y-player.y;
+        const dist=Math.hypot(dx,dy);
+        if(dist < Math.min(W,H)*0.95){
+          cx = (player.x + foe.x) * 0.5;
+          cy = (player.y + foe.y) * 0.5;
+        } else {
+          cx = player.x; cy = player.y;
+        }
+      } else if(!downed){
+        cx = player.x; cy = player.y;
+      }
+    }
     camera.x += (cx-camera.x)*(1-Math.pow(.001,dt));
     camera.y += (cy-camera.y)*(1-Math.pow(.001,dt));
 
@@ -836,6 +1393,7 @@
   }
 
   function updateLocalUI(){
+    if(!player) return;
     ui.level.textContent=player.level;
     ui.time.textContent=fmtTime(elapsed);
     ui.hp.textContent=Math.ceil(player.hp)+'/'+player.maxHp;
@@ -861,8 +1419,9 @@
   }
   function drawTrail(){
     if(trail.length<2) return;
+    const fac = FACTION[myTeam]||FACTION.red;
     ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
-    ctx.strokeStyle='rgba(244,180,99,.17)';ctx.lineWidth=player.trailWidth+9;ctx.beginPath();
+    ctx.strokeStyle=fac.trail;ctx.lineWidth=player.trailWidth+9;ctx.beginPath();
     ctx.moveTo(sx(trail[0].x),sy(trail[0].y));
     for(let i=1;i<trail.length;i++)ctx.lineTo(sx(trail[i].x),sy(trail[i].y));ctx.stroke();
     ctx.strokeStyle='#efcf98';ctx.lineWidth=player.trailWidth;ctx.beginPath();ctx.moveTo(sx(trail[0].x),sy(trail[0].y));
@@ -882,38 +1441,119 @@
   function drawOrbs(){
     for(const o of orbs){if(!visible(o.x,o.y))continue;const x=sx(o.x),y=sy(o.y);ctx.beginPath();ctx.arc(x,y,4.5,0,Math.PI*2);ctx.fillStyle='#9bcf7f';ctx.fill();}
   }
+
+  // 类型造型区分；颜色=阵营。无迷雾裁剪（仅视口可见性）
   function drawEnemy(e){
-    if(!visible(e.x,e.y,e.sight+20))return;
-    const x=sx(e.x),y=sy(e.y);
-    if(dist2(player.x,player.y,e.x,e.y)<(e.sight+130)*(e.sight+130)){
-      ctx.beginPath();ctx.arc(x,y,e.sight,0,Math.PI*2);
-      ctx.strokeStyle=e.state==='alert'?'rgba(230,101,91,.19)':'rgba(207,215,205,.055)';ctx.lineWidth=1;ctx.stroke();
+    if(!visible(e.x,e.y,e.r+40)) return;
+    const x=sx(e.x), y=sy(e.y);
+    const fac = FACTION[e.team] || FACTION.red;
+    const fill = e.hitFlash>0 ? '#fff2d5' : fac.fill;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(e.angle||0);
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=10; ctx.shadowOffsetY=3;
+    if(e.type==='swift'){
+      ctx.beginPath();
+      ctx.moveTo(e.r*1.35,0);
+      ctx.lineTo(-e.r*.55,-e.r*1.15);
+      ctx.lineTo(-e.r*.2,0);
+      ctx.lineTo(-e.r*.55,e.r*1.15);
+      ctx.closePath();
+      ctx.fillStyle=fill; ctx.fill();
+      ctx.fillStyle='#2b2422';
+      ctx.beginPath(); ctx.arc(e.r*.25,-e.r*.22,1.8,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*.25, e.r*.22,1.8,0,Math.PI*2); ctx.fill();
+    } else if(e.type==='watcher'){
+      ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill();
+      ctx.shadowColor='transparent';
+      ctx.setLineDash([3.5,3.5]);
+      ctx.strokeStyle='rgba(255,248,230,.7)'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(0,0,e.r+5,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle=fill;
+      ctx.beginPath(); ctx.moveTo(0,-e.r-8); ctx.lineTo(-5,-e.r+1); ctx.lineTo(5,-e.r+1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#2b2422';
+      ctx.beginPath(); ctx.arc(e.r*.3,-e.r*.15,2.4,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*.3, e.r*.15,2.4,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill();
+      ctx.shadowColor='transparent';
+      ctx.fillStyle='#2b2422';
+      ctx.beginPath(); ctx.arc(e.r*.36,-e.r*.18,2.2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*.36, e.r*.18,2.2,0,Math.PI*2); ctx.fill();
     }
-    ctx.save();ctx.translate(x,y);ctx.rotate(e.angle);
-    ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=10;ctx.shadowOffsetY=3;
-    ctx.beginPath();ctx.arc(0,0,e.r,0,Math.PI*2);ctx.fillStyle=e.hitFlash>0?'#fff2d5':e.color;ctx.fill();
     ctx.shadowColor='transparent';
-    ctx.fillStyle='#2b2422';ctx.beginPath();ctx.arc(e.r*.36,-e.r*.18,2.2,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(e.r*.36,e.r*.18,2.2,0,Math.PI*2);ctx.fill();
-    if(e.injected){ctx.strokeStyle='rgba(242,166,90,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,e.r+3,0,Math.PI*2);ctx.stroke();}
+    if(e.injected){
+      ctx.strokeStyle='rgba(242,166,90,.85)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(0,0,e.r+4,0,Math.PI*2); ctx.stroke();
+    }
     ctx.restore();
   }
-  function drawPlayer(){
-    if(downed) return;
-    const x=sx(player.x),y=sy(player.y);
-    ctx.save();ctx.translate(x,y);
-    if(player.invuln>0){ctx.beginPath();ctx.arc(0,0,player.r+7+Math.sin(elapsed*22)*2,0,Math.PI*2);ctx.strokeStyle='rgba(255,240,193,.65)';ctx.lineWidth=2;ctx.stroke();}
-    ctx.shadowColor='rgba(242,166,90,.32)';ctx.shadowBlur=18;
-    ctx.beginPath();ctx.arc(0,0,player.r,0,Math.PI*2);ctx.fillStyle='#f2ead4';ctx.fill();
-    ctx.shadowColor='transparent';
-    ctx.beginPath();ctx.arc(-3,-3,4.2,0,Math.PI*2);ctx.fillStyle='#fffdf4';ctx.fill();
-    ctx.fillStyle='#253033';ctx.fillRect(-2,-6,4,13);
-    ctx.fillStyle='#d88d52';ctx.beginPath();ctx.moveTo(-4,6);ctx.lineTo(4,6);ctx.lineTo(0,12);ctx.closePath();ctx.fill();
+
+
+  function drawFoeEdgeHint(){
+    if(!foe || foe.alive===false || !player) return;
+    if(visible(foe.x, foe.y, foe.r+20)) return;
+    const fac = FACTION[foe.team] || FACTION[oppTeam] || FACTION.blue;
+    const dx=foe.x-camera.x, dy=foe.y-camera.y;
+    const ang=Math.atan2(dy,dx);
+    const pad=28;
+    const hx=clamp(W/2 + Math.cos(ang)*(W/2-pad), pad, W-pad);
+    const hy=clamp(H/2 + Math.sin(ang)*(H/2-pad), pad, H-pad);
+    ctx.save();
+    ctx.translate(hx,hy);
+    ctx.rotate(ang);
+    ctx.fillStyle=fac.color;
+    ctx.beginPath();
+    ctx.moveTo(12,0); ctx.lineTo(-8,-8); ctx.lineTo(-8,8); ctx.closePath();
+    ctx.fill();
     ctx.restore();
+    ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(244,239,228,.85)';
+    ctx.fillText('对手', hx, hy-14);
   }
+
+  function drawActor(p, isMe){
+    if(!p) return;
+    const fac = FACTION[p.team] || (isMe?FACTION[myTeam]:FACTION[oppTeam]) || FACTION.red;
+    if(!p.alive){
+      const x=sx(p.x), y=sy(p.y);
+      ctx.save(); ctx.globalAlpha=.35; ctx.translate(x,y);
+      ctx.beginPath(); ctx.ellipse(0,4,p.r*1.2,p.r*.55,0,0,Math.PI*2);
+      ctx.fillStyle=fac.fill; ctx.fill(); ctx.restore();
+      return;
+    }
+    if(isMe && downed) return;
+    const x=sx(p.x), y=sy(p.y);
+    ctx.save(); ctx.translate(x,y);
+    if(p.invuln>0){
+      ctx.beginPath(); ctx.arc(0,0,p.r+7+Math.sin(elapsed*22)*2,0,Math.PI*2);
+      ctx.strokeStyle=isMe?'rgba(255,240,193,.65)':fac.soft; ctx.lineWidth=2; ctx.stroke();
+    }
+    if(!isMe){
+      ctx.beginPath(); ctx.arc(0,0,p.r+5,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,248,230,.85)'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,p.r+9,0,Math.PI*2);
+      ctx.strokeStyle=fac.soft; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    ctx.shadowColor=fac.soft; ctx.shadowBlur=16;
+    ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fillStyle=fac.fill; ctx.fill();
+    ctx.shadowColor='transparent';
+    ctx.fillStyle='#fffdf4'; ctx.beginPath(); ctx.arc(-3,-3,3.6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1c2428'; ctx.fillRect(-2,-6,4,12);
+    ctx.fillStyle='#f0dfb6';
+    ctx.beginPath(); ctx.moveTo(-4,6); ctx.lineTo(4,6); ctx.lineTo(0,12); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(0,-p.r-7,3.2,0,Math.PI*2); ctx.fillStyle=fac.color; ctx.fill();
+    ctx.restore();
+    ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(244,239,228,.7)';
+    ctx.fillText(isMe?'你':'对手', x, y - p.r - 14);
+  }
+
   function drawParticles(){
     for(const p of particles){if(!visible(p.x,p.y))continue;const a=clamp(p.life/p.max,0,1);const color=p.kind==='enemy'?'rgba(224,100,83,':p.kind==='hurt'?'rgba(255,224,183,':'rgba(241,208,151,';ctx.fillStyle=color+a+')';ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),p.size*a+.5,0,Math.PI*2);ctx.fill();}
   }
+
   function draw(){
     ctx.clearRect(0,0,W,H);
     if(!battleActive && screen!==Screen.INGAME && screen!==Screen.READY){
@@ -921,27 +1561,39 @@
       return;
     }
     drawGrid(); drawFlashes(); drawOrbs();
+    // 同图无迷雾：双方怪同屏可见（仅视口 culling）
     for(const e of enemies) drawEnemy(e);
-    drawTrail(); drawParticles(); drawPlayer();
-    if(!downed && trail.length>18){ctx.beginPath();ctx.arc(sx(player.x),sy(player.y),player.closureRadius,0,Math.PI*2);ctx.strokeStyle='rgba(243,223,179,.12)';ctx.lineWidth=1;ctx.stroke();}
+    drawTrail(); drawParticles();
+    drawActor(foe, false);
+    drawActor(player, true);
+    drawFoeEdgeHint();
+    if(!downed && player && trail.length>18){
+      ctx.beginPath();ctx.arc(sx(player.x),sy(player.y),player.closureRadius,0,Math.PI*2);
+      ctx.strokeStyle='rgba(243,223,179,.12)';ctx.lineWidth=1;ctx.stroke();
+    }
   }
 
   function startBattle(seedVal){
     upgradeSpeedMul=1;
     rng = seedVal ? mulberry32(seedVal>>>0) : Math.random;
     baseSpeed=220;
-    player={
-      x:world.w/2,y:world.h/2,r:13,speed:220,
-      hp:100,maxHp:100,invuln:0,
-      pickup:85,closureRadius:28,minLoopArea:2300,
-      trailWidth:7,maxTrail:520,inkLife:16,
-      level:1,xp:0,xpNeed:12
-    };
-    enemies=[];orbs=[];particles=[];flashes=[];trail=[];
+    // 双方分列出生（同图）；权威服会用 snapshot 覆盖坐标
+    const gap = 260;
+    player = makeActor(myTeam, world.w/2 - gap, world.h/2, playerId);
+    foe = makeActor(oppTeam, world.w/2 + gap, world.h/2, opponentId);
+    foeSnapReady=false;
+    enemies=[];orbs=[];particles=[];flashes=[];trail=[{x:player.x,y:player.y,t:0}];
     localKills=0;elapsed=0;spawnClock=0;difficulty=1;
-    paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;
+    paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;pendingLevelUp=false;
+    snapshotSeq=-1; worldPaused=false; moveReportAccum=0; lastMoveSent={x:0,y:0};
+    closeLevelupUI();
     camera.x=player.x;camera.y=player.y;
-    for(let i=0;i<26;i++) spawnEnemy(i<12);
+    // TODO(client): 无权威 snapshot 时本地双实体 fallback
+    if(useFallback){
+      for(let i=0;i<14;i++) spawnEnemyNear(player, i<8);
+      for(let i=0;i<14;i++) spawnEnemyNear(foe, i<8);
+    }
+    applyFactionUI();
     updateLocalUI();
     updateScoreUI();
   }
@@ -950,13 +1602,12 @@
     battleActive=false;
     paused=true;
     clearInterval(reviveLocalTimer);
-    ui.levelup.style.display='none';
+    closeLevelupUI();
     ui.revive.style.display='none';
   }
 
   function showResult(msg){
-    // Result 抢占子层：先关 revive/levelup，再开结算
-    ui.levelup.style.display='none';
+    closeLevelupUI();
     ui.revive.style.display='none';
     clearInterval(reviveLocalTimer);
     stopBattle();
@@ -967,8 +1618,10 @@
     ui.resultTitle.className = win ? 'win' : 'lose';
     const yk=msg.you?.kills??scoreYou.kills;
     const ok=msg.opponent?.kills??scoreOpp.kills;
+    const yt = (msg.you?.team||myTeam)==='red'?'红':'蓝';
+    const ot = (msg.opponent?.team||oppTeam)==='red'?'红':'蓝';
     ui.resultScore.textContent = `你 ${yk} · 对手 ${ok}`;
-    ui.resultMeta.textContent = `用时 ${fmtTime(elapsed)} · 等级 ${player?.level||1} · 本方击杀 ${yk}`;
+    ui.resultMeta.textContent = `用时 ${fmtTime(elapsed)} · 等级 ${player?.level||1} · ${yt} ${yk} · ${ot} ${ok}`;
   }
 
   function backToLobby(){
@@ -998,6 +1651,33 @@
   base.addEventListener('pointerup',releaseStick);base.addEventListener('pointercancel',releaseStick);
 
   // ---------- Buttons ----------
+  function startLocalPreview(){
+    playerId = playerId || ("local_me_"+Math.floor(Math.random()*9999));
+    opponentId = "local_foe";
+    opponentName = "模拟对手";
+    myTeam = Math.random() < 0.5 ? "red" : "blue";
+    oppTeam = myTeam === "red" ? "blue" : "red";
+    livesN = 1; killTargetK = 30;
+    scoreYou = {kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:myTeam};
+    scoreOpp = {kills:0,lives:1,alive:true,reviveAt:null,speedMul:1,team:oppTeam};
+    useAuthority = false; useFallback = true;
+    applyFactionUI();
+    ui.readyNames.textContent = "你（"+playerName+"） · "+opponentName;
+    setScreen(Screen.READY);
+    startBattle(Date.now() & 0xffffffff);
+    setTimeout(function(){
+      if(screen===Screen.READY){
+        setScreen(Screen.INGAME);
+        updateScoreUI();
+        showMessage("同图开战 · 本地预览");
+        sysToast("本地模拟对手 · 匹配可接权威 snapshot", 2400);
+      }
+    }, 1200);
+  }
+  var _btnLocal = el("btnLocal");
+  if(_btnLocal) _btnLocal.onclick = startLocalPreview;
+  if(params.get("local")==="1" || params.get("demo")==="1") setTimeout(startLocalPreview, 120);
+
   let connecting=false;
   el('btnMatch').onclick = async ()=>{
     if(connecting) return;
@@ -1027,11 +1707,9 @@
   };
 
   el('btnLobby').onclick = backToLobby;
-
   el('adRevivePlaceholder').onclick = ()=>sysToast('广告占位（未接 SDK）');
   el('adResultPlaceholder').onclick = ()=>sysToast('广告占位（未接 SDK）');
 
-  // ---------- Loop ----------
   let last=performance.now();
   function frame(now){
     const dt=Math.min(.034,(now-last)/1000||0); last=now;
