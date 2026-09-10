@@ -777,6 +777,15 @@
   }
   function VALID_TYPE(t){ return t==='drifter'||t==='swift'||t==='watcher'; }
 
+
+  function softSetPos(ent, x, y, hard=56, alpha=0.28){
+    if(!ent) return;
+    const dx=x-ent.x, dy=y-ent.y;
+    const d=Math.hypot(dx,dy);
+    if(d>hard){ ent.x=x; ent.y=y; }
+    else { ent.x+=dx*alpha; ent.y+=dy*alpha; }
+  }
+
   function applyWorldSnapshot(msg){
     if(!battleActive && screen!==Screen.READY && screen!==Screen.INGAME) return;
     if(typeof msg.seq==='number' && msg.seq < snapshotSeq) return;
@@ -790,8 +799,8 @@
     for(const p of plist){
       if(p.playerId===playerId){
         if(player){
-          // 权威位置；轻微平滑
-          player.x = p.x; player.y = p.y;
+          // 权威位置软校准，避免每 tick 硬拽导致抖动
+          softSetPos(player, p.x, p.y, 64, 0.22);
           player.vx = p.vx||0; player.vy = p.vy||0;
           player.alive = p.alive!==false;
           player.team = p.team || myTeam;
@@ -808,7 +817,7 @@
         opponentId = p.playerId || opponentId;
         if(!foe) foe = makeActor(p.team||oppTeam, p.x, p.y, p.playerId);
         foe.playerId = p.playerId;
-        foe.x = p.x; foe.y = p.y;
+        softSetPos(foe, p.x, p.y, 72, 0.25);
         foe.vx = p.vx||0; foe.vy = p.vy||0;
         foe.alive = p.alive!==false;
         foe.team = p.team || oppTeam;
@@ -821,21 +830,36 @@
     }
 
     const elist = Array.isArray(msg.enemies) ? msg.enemies : [];
-    enemies = elist.map(e=>{
+    const prev = new Map(enemies.map(e=>[e.id,e]));
+    const next=[];
+    for(const e of elist){
       const type = e.enemyType || e.type || 'drifter';
       const st = enemyStats(type);
-      return {
-        id: e.id,
-        x: e.x, y: e.y,
-        ...st,
-        type,
-        team: e.team || ((e.ownerId===playerId)?myTeam:oppTeam),
-        ownerId: e.ownerId,
-        hp: e.hp!=null?e.hp:1,
-        state:'wander', angle:0, wanderT:1, alert:0, attackCd:0, hitFlash:0,
-        injected:!!e.injected, dead:false,
-      };
-    });
+      const old = prev.get(e.id);
+      if(old){
+        softSetPos(old, e.x, e.y, 80, 0.35);
+        old.team = e.team || old.team;
+        old.ownerId = e.ownerId;
+        old.hp = e.hp!=null?e.hp:old.hp;
+        old.type = type;
+        Object.assign(old, st);
+        old.dead=false;
+        next.push(old);
+      } else {
+        next.push({
+          id: e.id,
+          x: e.x, y: e.y,
+          ...st,
+          type,
+          team: e.team || ((e.ownerId===playerId)?myTeam:oppTeam),
+          ownerId: e.ownerId,
+          hp: e.hp!=null?e.hp:1,
+          state:'wander', angle:Math.random()*Math.PI*2, wanderT:1, alert:0, attackCd:0, hitFlash:0,
+          injected:!!e.injected, dead:false,
+        });
+      }
+    }
+    enemies = next;
     applyFactionUI();
     updateScoreUI();
   }
@@ -1097,8 +1121,22 @@
   }
 
   function updateEnemy(e,dt){
-    // 权威模式下怪由服务端驱动，本地不 AI
-    if(useAuthority) return;
+    // 权威模式：位移跟服务端；本地仍结算「怪打主人」HP（服务端暂无 HP 条）
+    if(useAuthority){
+      e.attackCd=Math.max(0,e.attackCd-dt); e.hitFlash=Math.max(0,e.hitFlash-dt);
+      const owner = ((e.ownerId===playerId)||(e.team===myTeam)) ? player : foe;
+      if(owner===player && !downed && player && player.alive!==false){
+        const dx=player.x-e.x, dy=player.y-e.y, d=Math.hypot(dx,dy);
+        const rr=player.r+e.r;
+        if(d<rr+3 && e.attackCd<=0 && player.invuln<=0){
+          player.hp-=e.damage; player.invuln=.55; e.attackCd=.8; e.hitFlash=.18;
+          const push=20/(d||1); player.x=clamp(player.x+dx*push,player.r,world.w-player.r); player.y=clamp(player.y+dy*push,player.r,world.h-player.r);
+          addParticle(player.x,player.y,'hurt',8);
+          if(player.hp<=0) onLocalDeath();
+        }
+      }
+      return;
+    }
     e.attackCd=Math.max(0,e.attackCd-dt); e.hitFlash=Math.max(0,e.hitFlash-dt);
     const owner = ((e.ownerId===playerId)||(e.team===myTeam)) ? player : foe;
     if(!owner || !owner.alive){

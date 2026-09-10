@@ -116,6 +116,11 @@ export class Room {
       y: partial.y,
       hp: partial.hp ?? 1,
       injected: !!partial.injected,
+      angle: Math.random() * Math.PI * 2,
+      wanderT: 0.5 + Math.random() * 2,
+      alert: 0,
+      attackCd: 0,
+      state: 'wander',
     };
     this.enemies.push(enemy);
     return enemy;
@@ -206,6 +211,62 @@ export class Room {
     }
   }
 
+  _enemyStats(type) {
+    if (type === 'swift') return { r: 10, speed: 132, sight: 190, damage: 10 };
+    if (type === 'watcher') return { r: 16, speed: 86, sight: 330, damage: 16 };
+    return { r: 13, speed: 96, sight: 245, damage: 12 };
+  }
+
+  /** 权威敌人 AI：游荡 / 追主人（伤害仍由客户端 HP 结算上报） */
+  _integrateEnemies(dt) {
+    if (this.paused) return;
+    for (const e of this.enemies) {
+      const st = this._enemyStats(e.enemyType);
+      const owner = this.getPlayer(e.ownerId);
+      e.attackCd = Math.max(0, (e.attackCd || 0) - dt);
+
+      let dx = 0;
+      let dy = 0;
+      let d = 0;
+      if (owner && owner.alive) {
+        dx = owner.x - e.x;
+        dy = owner.y - e.y;
+        d = Math.hypot(dx, dy);
+        if (d < st.sight) {
+          e.state = 'alert';
+          e.alert = 1.1;
+        } else if ((e.alert || 0) > 0) {
+          e.alert -= dt;
+          if (e.alert <= 0) e.state = 'wander';
+        } else {
+          e.state = 'wander';
+        }
+      } else {
+        e.state = 'wander';
+      }
+
+      let vx = 0;
+      let vy = 0;
+      if (e.state === 'alert' && d > 1e-3) {
+        const inv = 1 / d;
+        vx = dx * inv * st.speed;
+        vy = dy * inv * st.speed;
+        e.angle = Math.atan2(vy, vx);
+      } else {
+        e.wanderT = (e.wanderT ?? 1) - dt;
+        if (e.wanderT <= 0) {
+          e.wanderT = 1 + Math.random() * 2.4;
+          e.angle = (e.angle || 0) + (Math.random() * 3.2 - 1.6);
+        }
+        vx = Math.cos(e.angle || 0) * st.speed * 0.27;
+        vy = Math.sin(e.angle || 0) * st.speed * 0.27;
+      }
+      e.x = clamp(e.x + vx * dt, st.r, config.mapWidth - st.r);
+      e.y = clamp(e.y + vy * dt, st.r, config.mapHeight - st.r);
+    }
+  }
+
+
   buildSnapshot() {
     this.seq += 1;
     updateLagBonus(this);
@@ -260,6 +321,7 @@ export class Room {
 
       events.push(...tickRevives(this, now));
       this._integratePlayers(dt);
+      this._integrateEnemies(dt);
       this._tickSpawn(now);
 
       // 权威快照每 tick 广播
