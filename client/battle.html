@@ -780,11 +780,29 @@
 
   function softSetPos(ent, x, y, hard=56, alpha=0.28){
     if(!ent) return;
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
     const dx=x-ent.x, dy=y-ent.y;
     const d=Math.hypot(dx,dy);
     if(d>hard){ ent.x=x; ent.y=y; }
     else { ent.x+=dx*alpha; ent.y+=dy*alpha; }
   }
+
+  function isSelfPlayer(p){
+    if(!p) return false;
+    const id = p.playerId != null ? String(p.playerId) : '';
+    if(playerId != null && id && id === String(playerId)) return true;
+    return false;
+  }
+
+  function isFoePlayer(p){
+    if(!p || isSelfPlayer(p)) return false;
+    const id = p.playerId != null ? String(p.playerId) : '';
+    if(opponentId != null && id && id === String(opponentId)) return true;
+    // snapshot 里非本方即对手（2 人房）
+    return !!id;
+  }
+
+  let foeSnapReady=false;
 
   function applyWorldSnapshot(msg){
     if(!battleActive && screen!==Screen.READY && screen!==Screen.INGAME) return;
@@ -797,12 +815,14 @@
 
     const plist = Array.isArray(msg.players) ? msg.players : [];
     for(const p of plist){
-      if(p.playerId===playerId){
+      if(isSelfPlayer(p)){
         if(player){
           // 本机手感优先：本地人物位置完全由本地输入驱动，快照默认不拽
           // 仅在严重偏离（传送/卡死）时硬纠正一次
-          const dx=p.x-player.x, dy=p.y-player.y;
-          if(Math.hypot(dx,dy) > 280){ player.x=p.x; player.y=p.y; }
+          if(Number.isFinite(p.x) && Number.isFinite(p.y)){
+            const dx=p.x-player.x, dy=p.y-player.y;
+            if(Math.hypot(dx,dy) > 280){ player.x=p.x; player.y=p.y; }
+          }
           player.alive = p.alive!==false;
           player.team = p.team || myTeam;
         }
@@ -814,14 +834,19 @@
         if(p.team) myTeam = p.team;
         if(!p.alive && !downed) enterRevive(p.reviveAt);
         if(p.alive && downed) doLocalRevive(p.lives!=null?p.lives:livesN);
-      } else {
+      } else if(isFoePlayer(p)){
         opponentId = p.playerId || opponentId;
-        if(!foe) foe = makeActor(p.team||oppTeam, p.x, p.y, p.playerId);
+        if(!foe) foe = makeActor(p.team||oppTeam, Number.isFinite(p.x)?p.x:world.w/2, Number.isFinite(p.y)?p.y:world.h/2, p.playerId);
         foe.playerId = p.playerId;
-        softSetPos(foe, p.x, p.y, 72, 0.25);
+        // 首帧硬对齐，避免软插值卡在旧出生点/NaN 导致「看不见对手」
+        if(Number.isFinite(p.x) && Number.isFinite(p.y)){
+          if(!foeSnapReady){ foe.x=p.x; foe.y=p.y; foeSnapReady=true; }
+          else softSetPos(foe, p.x, p.y, 72, 0.35);
+        }
         foe.vx = p.vx||0; foe.vy = p.vy||0;
         foe.alive = p.alive!==false;
         foe.team = p.team || oppTeam;
+        if(!Number.isFinite(foe.r)) foe.r = 13;
         scoreOpp.kills = p.kills!=null?p.kills:scoreOpp.kills;
         scoreOpp.lives = p.lives!=null?p.lives:scoreOpp.lives;
         scoreOpp.alive = p.alive!==false;
@@ -1506,8 +1531,10 @@
       ctx.strokeStyle=isMe?'rgba(255,240,193,.65)':fac.soft; ctx.lineWidth=2; ctx.stroke();
     }
     if(!isMe){
-      ctx.beginPath(); ctx.arc(0,0,p.r+3.5,0,Math.PI*2);
-      ctx.strokeStyle='rgba(255,248,230,.55)'; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,p.r+5,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,248,230,.85)'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,p.r+9,0,Math.PI*2);
+      ctx.strokeStyle=fac.soft; ctx.lineWidth=1.5; ctx.stroke();
     }
     ctx.shadowColor=fac.soft; ctx.shadowBlur=16;
     ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fillStyle=fac.fill; ctx.fill();
@@ -1554,6 +1581,7 @@
     const gap = 260;
     player = makeActor(myTeam, world.w/2 - gap, world.h/2, playerId);
     foe = makeActor(oppTeam, world.w/2 + gap, world.h/2, opponentId);
+    foeSnapReady=false;
     enemies=[];orbs=[];particles=[];flashes=[];trail=[{x:player.x,y:player.y,t:0}];
     localKills=0;elapsed=0;spawnClock=0;difficulty=1;
     paused=false;downed=false;battleActive=true;levelUpQueued=false;deathPending=false;pendingLevelUp=false;
