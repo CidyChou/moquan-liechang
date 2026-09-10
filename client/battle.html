@@ -799,9 +799,10 @@
     for(const p of plist){
       if(p.playerId===playerId){
         if(player){
-          // 权威位置软校准，避免每 tick 硬拽导致抖动
-          softSetPos(player, p.x, p.y, 64, 0.22);
-          player.vx = p.vx||0; player.vy = p.vy||0;
+          // 本机手感优先：本地人物位置完全由本地输入驱动，快照默认不拽
+          // 仅在严重偏离（传送/卡死）时硬纠正一次
+          const dx=p.x-player.x, dy=p.y-player.y;
+          if(Math.hypot(dx,dy) > 280){ player.x=p.x; player.y=p.y; }
           player.alive = p.alive!==false;
           player.team = p.team || myTeam;
         }
@@ -1260,7 +1261,7 @@
 
   function reportMove(dt){
     moveReportAccum += dt;
-    if(moveReportAccum < 0.05) return; // ~20Hz
+    if(moveReportAccum < 0.033) return; // ~30Hz
     moveReportAccum = 0;
     const x = moveDir.x, y = moveDir.y;
     if(x===lastMoveSent.x && y===lastMoveSent.y && x===0 && y===0) return;
@@ -1305,8 +1306,7 @@
       if(ml>0){ mx/=ml; my/=ml; }
       moveDir={x:mx,y:my};
 
-      // 权威模式：本地预测移动；快照会纠正
-      // fallback：本地权威移动
+      // 本机永远本地移动（手感优先）；快照不覆盖本机坐标
       if(ml>0){
         const ox=player.x,oy=player.y;
         player.x=clamp(player.x+mx*player.speed*dt,player.r,world.w-player.r);
@@ -1344,8 +1344,22 @@
     for(const f of flashes) f.life-=dt;
     flashes=flashes.filter(f=>f.life>0);
 
-    const cx = (!downed && player) ? player.x : camera.x;
-    const cy = (!downed && player) ? player.y : camera.y;
+    let cx = camera.x, cy = camera.y;
+    if(player){
+      if(foe && foe.alive!==false && player.alive!==false && !downed){
+        // 尽量把双方框进镜头；距离过大则仍以本方为主
+        const dx=foe.x-player.x, dy=foe.y-player.y;
+        const dist=Math.hypot(dx,dy);
+        if(dist < Math.min(W,H)*0.95){
+          cx = (player.x + foe.x) * 0.5;
+          cy = (player.y + foe.y) * 0.5;
+        } else {
+          cx = player.x; cy = player.y;
+        }
+      } else if(!downed){
+        cx = player.x; cy = player.y;
+      }
+    }
     camera.x += (cx-camera.x)*(1-Math.pow(.001,dt));
     camera.y += (cy-camera.y)*(1-Math.pow(.001,dt));
 
@@ -1451,6 +1465,29 @@
     ctx.restore();
   }
 
+
+  function drawFoeEdgeHint(){
+    if(!foe || foe.alive===false || !player) return;
+    if(visible(foe.x, foe.y, foe.r+20)) return;
+    const fac = FACTION[foe.team] || FACTION[oppTeam] || FACTION.blue;
+    const dx=foe.x-camera.x, dy=foe.y-camera.y;
+    const ang=Math.atan2(dy,dx);
+    const pad=28;
+    const hx=clamp(W/2 + Math.cos(ang)*(W/2-pad), pad, W-pad);
+    const hy=clamp(H/2 + Math.sin(ang)*(H/2-pad), pad, H-pad);
+    ctx.save();
+    ctx.translate(hx,hy);
+    ctx.rotate(ang);
+    ctx.fillStyle=fac.color;
+    ctx.beginPath();
+    ctx.moveTo(12,0); ctx.lineTo(-8,-8); ctx.lineTo(-8,8); ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(244,239,228,.85)';
+    ctx.fillText('对手', hx, hy-14);
+  }
+
   function drawActor(p, isMe){
     if(!p) return;
     const fac = FACTION[p.team] || (isMe?FACTION[myTeam]:FACTION[oppTeam]) || FACTION.red;
@@ -1502,6 +1539,7 @@
     drawTrail(); drawParticles();
     drawActor(foe, false);
     drawActor(player, true);
+    drawFoeEdgeHint();
     if(!downed && player && trail.length>18){
       ctx.beginPath();ctx.arc(sx(player.x),sy(player.y),player.closureRadius,0,Math.PI*2);
       ctx.strokeStyle='rgba(243,223,179,.12)';ctx.lineWidth=1;ctx.stroke();
@@ -1513,7 +1551,7 @@
     rng = seedVal ? mulberry32(seedVal>>>0) : Math.random;
     baseSpeed=220;
     // 双方分列出生（同图）；权威服会用 snapshot 覆盖坐标
-    const gap = Math.min(160, world.w * 0.1);
+    const gap = 260;
     player = makeActor(myTeam, world.w/2 - gap, world.h/2, playerId);
     foe = makeActor(oppTeam, world.w/2 + gap, world.h/2, opponentId);
     enemies=[];orbs=[];particles=[];flashes=[];trail=[{x:player.x,y:player.y,t:0}];

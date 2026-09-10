@@ -40,9 +40,13 @@ export class Room {
     this.enemies = [];
 
     const teams = shuffleTeams();
+    // 出生点靠近中线，保证同屏可见（避免镜头跟随时对手出屏）
+    const midX = config.mapWidth / 2;
+    const midY = config.mapHeight / 2;
+    const spawnGap = 260;
     const spawnPoints = [
-      { x: 150, y: config.mapHeight / 2 },
-      { x: config.mapWidth - 150, y: config.mapHeight / 2 },
+      { x: midX - spawnGap, y: midY },
+      { x: midX + spawnGap, y: midY },
     ];
 
     this.players = players.map((p, i) => ({
